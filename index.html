@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบตรวจสุขภาพประจำปีเจ้าหน้าที่ - โรงพยาบาลไทรโยค</title>
+  <title>ระบบข้อมูลตรวจสุขภาพประจำปีเจ้าหน้าที่ - โรงพยาบาลไทรโยค</title>
 
   <!-- Google Fonts: Sarabun & Kanit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,31 +25,39 @@
 <body>
 
   <!-- ========================================================================= -->
-  <!-- 1. Navigation Bar -->
+  <!-- 1. Header Navigation -->
   <!-- ========================================================================= -->
-  <nav class="navbar navbar-dark navbar-custom py-2 sticky-top">
-    <div class="container-fluid px-3 px-lg-4">
+  <nav class="navbar navbar-dark navbar-custom py-2 mb-3 sticky-top">
+    <div class="container-fluid px-lg-4">
       <div class="d-flex align-items-center gap-3">
-        <div class="brand-icon shadow-sm">
-          <i class="fa-solid fa-heart-pulse"></i>
-        </div>
+        <span class="bg-white p-2 rounded-3 text-primary d-flex align-items-center justify-content-center shadow-sm" style="width: 44px; height: 44px;">
+          <i class="fa-solid fa-heart-pulse fs-4 text-teal"></i>
+        </span>
         <div>
-          <div class="navbar-brand m-0 fw-bold fs-6 fs-md-5 d-flex align-items-center gap-2">
-            <span>ระบบตรวจสุขภาพประจำปีเจ้าหน้าที่</span>
-            <span class="badge bg-white text-dark fs-9 fw-normal px-2 py-1 rounded-pill d-none d-md-inline-block">GitHub Edition</span>
-          </div>
-          <div class="text-white-50 fs-9">กลุ่มงานบริการด้านปฐมภูมิและองค์รวม โรงพยาบาลไทรโยค</div>
+          <h5 class="navbar-brand mb-0 fw-bold fs-5 d-flex align-items-center gap-2">
+            ระบบข้อมูลตรวจสุขภาพประจำปีเจ้าหน้าที่
+            <span class="badge bg-warning text-dark fs-8 fw-normal">รพ.ไทรโยค</span>
+          </h5>
+          <small class="text-white-50 fs-8">
+            สิทธิ 80, 81 | กลุ่ม CL (ปกติ, เสี่ยง, ป่วย) | คำแนะนำ CJ | กราฟ 3 ปี | GitHub Pages
+          </small>
         </div>
       </div>
 
-      <!-- User Controls in Navbar -->
-      <div id="navUserControls" class="d-flex align-items-center gap-2 d-none">
-        <button class="btn btn-light btn-sm text-dark d-flex align-items-center gap-1 shadow-sm" onclick="loadSheetData()" title="รีเฟรชข้อมูล">
+      <!-- Right controls -->
+      <div id="navUserControls" class="d-flex align-items-center gap-2 mt-2 mt-sm-0 d-none">
+        <a href="https://docs.google.com/spreadsheets/d/1ejjut45lXZ-G-qxpkAbmGVGk5JhcwZ8CGyA46Bx_w4k/edit" target="_blank" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1 shadow-sm">
+          <i class="fa-solid fa-table"></i>
+          <span class="d-none d-md-inline">เปิด Google Sheet</span>
+          <i class="fa-solid fa-arrow-up-right-from-square ms-1 fs-9"></i>
+        </a>
+
+        <button class="btn btn-light btn-sm text-dark d-flex align-items-center gap-1 shadow-sm" onclick="loadSheetData()" title="รีเฟรชข้อมูลล่าสุด">
           <i class="fa-solid fa-rotate"></i>
           <span class="d-none d-sm-inline">รีเฟรช</span>
         </button>
 
-        <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" title="ตั้งค่า API Web App">
+        <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal" title="ตั้งค่า API Web App">
           <i class="fa-solid fa-gear"></i>
         </button>
 
@@ -59,8 +67,7 @@
             <span id="navUserName" class="d-none d-md-inline">admin11278</span>
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-            <li><h6 class="dropdown-header">สถานะ: ผู้ดูแลระบบ</h6></li>
-            <li><a class="dropdown-item" href="https://docs.google.com/spreadsheets/d/1ejjut45lXZ-G-qxpkAbmGVGk5JhcwZ8CGyA46Bx_w4k/edit" target="_blank"><i class="fa-solid fa-table me-2 text-success"></i>เปิด Google Sheets</a></li>
+            <li><h6 class="dropdown-header">ผู้ดูแลระบบ รพ.ไทรโยค</h6></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket me-2"></i>ออกจากระบบ</a></li>
           </ul>
@@ -109,200 +116,497 @@
         </form>
 
         <div class="mt-4 pt-3 border-top text-center text-muted fs-8">
-          <i class="fa-solid fa-shield-halved text-success me-1"></i> เชื่อมต่อ Google Sheets ผ่าน Google Apps Script Web App
+          <i class="fa-solid fa-shield-halved text-success me-1"></i> Google Apps Script Web App (รพ.ไทรโยค)
         </div>
       </div>
     </div>
   </section>
 
   <!-- ========================================================================= -->
-  <!-- 3. Main Dashboard (แสดงเมื่อเข้าสู่ระบบสำเร็จ) -->
+  <!-- 3. Main Container (แสดงเมื่อเข้าสู่ระบบสำเร็จ) -->
   <!-- ========================================================================= -->
-  <main id="dashboardSection" class="container-fluid px-3 px-lg-4 py-4 d-none">
+  <div id="dashboardSection" class="container-fluid px-lg-4 pb-5 d-none">
 
-    <!-- KPI Summary Cards -->
-    <div class="row g-3 mb-4">
-      <!-- Total -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card stat-card p-3 h-100 shadow-sm">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-muted fs-8 fw-semibold">เจ้าหน้าที่ทั้งหมด</span>
-            <div class="icon-box bg-primary bg-opacity-10 text-primary">
-              <i class="fa-solid fa-users"></i>
-            </div>
-          </div>
-          <div class="fs-4 fw-bold font-monospace" id="statTotal">0</div>
-          <div class="fs-9 text-muted mt-1">คนในฐานข้อมูล</div>
+    <!-- Filter Control Panel (Default ก.ค. - ส.ค. 2569) -->
+    <div class="filter-panel mb-4">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold text-secondary fs-8 mb-1">
+            <i class="fa-regular fa-calendar-days text-primary me-1"></i> วันที่ตรวจเริ่มต้น:
+          </label>
+          <input type="date" id="filterStartDate" class="form-control form-control-sm" value="2026-07-01">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold text-secondary fs-8 mb-1">
+            <i class="fa-regular fa-calendar-check text-primary me-1"></i> วันที่ตรวจสิ้นสุด:
+          </label>
+          <input type="date" id="filterEndDate" class="form-control form-control-sm" value="2026-08-31">
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label fw-bold text-secondary fs-8 mb-1">
+            <i class="fa-solid fa-id-card-clip text-primary me-1"></i> สิทธิการรักษา:
+          </label>
+          <select id="filterPttype" class="form-select form-select-sm">
+            <option value="all">ทุกสิทธิ (80 และ 81)</option>
+            <option value="80">สิทธิ 80 (ข้าราชการ รพ.ไทรโยค)</option>
+            <option value="81">สิทธิ 81 (ประกันสังคม)</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label fw-bold text-secondary fs-8 mb-1">
+            <i class="fa-solid fa-layer-group text-primary me-1"></i> กลุ่มสุขภาพ (CL):
+          </label>
+          <select id="filterGroup" class="form-select form-select-sm">
+            <option value="all">ทุกกลุ่มสุขภาพ (CL)</option>
+            <option value="ปกติ">กลุ่มปกติ (เขียว)</option>
+            <option value="เสี่ยง">กลุ่มเสี่ยง (เหลือง/ส้ม)</option>
+            <option value="ป่วย">กลุ่มป่วย (แดง)</option>
+            <option value="unassessed">ยังไม่ประเมิน</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex gap-2">
+          <button class="btn btn-primary btn-sm flex-fill d-flex align-items-center justify-content-center gap-1 shadow-sm" id="btnFilterSearch" onclick="applyFilters()">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>ค้นหาข้อมูล</span>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnResetFilter" onclick="resetFilters()" title="รีเซ็ต">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
         </div>
       </div>
 
-      <!-- Normal Group -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card stat-card p-3 h-100 shadow-sm border-success border-opacity-25">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-success fs-8 fw-semibold">กลุ่มปกติ (CL)</span>
-            <div class="icon-box bg-success bg-opacity-10 text-success">
-              <i class="fa-solid fa-circle-check"></i>
-            </div>
-          </div>
-          <div class="fs-4 fw-bold font-monospace text-success" id="statNormal">0</div>
-          <div class="fs-9 text-muted mt-1">สุขภาพดี / ปกติ</div>
-        </div>
-      </div>
+      <!-- Date Preset Quick Buttons & Export Action -->
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top">
+        <span class="text-muted fs-8 fw-semibold"><i class="fa-solid fa-bolt text-warning me-1"></i>เลือกช่วงด่วน:</span>
+        <button type="button" class="btn btn-primary btn-preset fw-bold" onclick="setPresetDate('jul_aug_2026')">
+          <i class="fa-solid fa-star me-1"></i> ก.ค. - ส.ค. 2569 (ช่วงตรวจสุขภาพ)
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-preset" onclick="setPresetDate('today')">วันนี้</button>
+        <button type="button" class="btn btn-outline-primary btn-preset" onclick="setPresetDate('year_2026')">ปี 2569 ทั้งปี</button>
+        <button type="button" class="btn btn-outline-primary btn-preset" onclick="setPresetDate('year_2025')">ปี 2568</button>
+        <button type="button" class="btn btn-outline-primary btn-preset" onclick="setPresetDate('all_data')">ข้อมูลทั้งหมด</button>
 
-      <!-- Risk Group -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card stat-card p-3 h-100 shadow-sm border-warning border-opacity-25">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-warning fs-8 fw-semibold">กลุ่มเสี่ยง (CL)</span>
-            <div class="icon-box bg-warning bg-opacity-10 text-warning">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-            </div>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <div class="input-group input-group-sm" style="max-width: 250px;">
+            <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+            <input type="text" id="filterSearch" class="form-control" placeholder="พิมพ์ชื่อ, HN เช่น 0014172...">
           </div>
-          <div class="fs-4 fw-bold font-monospace text-warning" id="statRisk">0</div>
-          <div class="fs-9 text-muted mt-1">มีภาวะเสี่ยงสุขภาพ</div>
-        </div>
-      </div>
 
-      <!-- Sick Group -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card stat-card p-3 h-100 shadow-sm border-danger border-opacity-25">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-danger fs-8 fw-semibold">กลุ่มป่วย (CL)</span>
-            <div class="icon-box bg-danger bg-opacity-10 text-danger">
-              <i class="fa-solid fa-circle-xmark"></i>
-            </div>
-          </div>
-          <div class="fs-4 fw-bold font-monospace text-danger" id="statSick">0</div>
-          <div class="fs-9 text-muted mt-1">ตรวจพบโรค / ผิดปกติ</div>
-        </div>
-      </div>
-
-      <!-- Unassessed Group -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card stat-card p-3 h-100 shadow-sm">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-secondary fs-8 fw-semibold">ยังไม่ประเมิน</span>
-            <div class="icon-box bg-secondary bg-opacity-10 text-secondary">
-              <i class="fa-solid fa-clock"></i>
-            </div>
-          </div>
-          <div class="fs-4 fw-bold font-monospace text-secondary" id="statUnassessed">0</div>
-          <div class="fs-9 text-muted mt-1">รอการจัดกลุ่ม</div>
-        </div>
-      </div>
-
-      <!-- Has Advice -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card stat-card p-3 h-100 shadow-sm border-info border-opacity-25">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="text-info fs-8 fw-semibold">มีคำแนะนำ (CJ)</span>
-            <div class="icon-box bg-info bg-opacity-10 text-info">
-              <i class="fa-solid fa-comment-medical"></i>
-            </div>
-          </div>
-          <div class="fs-4 fw-bold font-monospace text-info" id="statAdvice">0</div>
-          <div class="fs-9 text-muted mt-1">บันทึกคำแนะนำแล้ว</div>
+          <!-- Excel Export Button -->
+          <button type="button" class="btn btn-outline-success btn-sm d-flex align-items-center gap-1 shadow-sm" onclick="exportTableToExcel()" title="ดาวน์โหลด Excel มีผล Lab ทุกตัวแยกคอลัมน์">
+            <i class="fa-solid fa-file-excel"></i>
+            <span>Save เป็น Excel (.xlsx)</span>
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Filter & Action Toolbar -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-      <div class="card-body p-3">
-        <div class="row g-2 align-items-center">
-          
-          <!-- Search box -->
-          <div class="col-12 col-md-4 col-lg-3">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-              <input type="text" class="form-control" id="searchBox" placeholder="ค้นหา HN, VN, ชื่อ-นามสกุล...">
+    <!-- KPI Statistic Cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-2">
+        <div class="stat-card p-3 d-flex align-items-center gap-3">
+          <div class="icon-box bg-primary bg-opacity-10 text-primary">
+            <i class="fa-solid fa-users"></i>
+          </div>
+          <div>
+            <div class="text-muted fs-9 fw-semibold">ผู้รับการตรวจทั้งหมด</div>
+            <div class="fs-4 fw-bold text-dark font-monospace" id="kpiTotalVisits">0</div>
+            <small class="text-success fs-9"><i class="fa-solid fa-circle-check me-1"></i>ครั้งตรวจ</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6 col-lg-2">
+        <div class="stat-card p-3 d-flex align-items-center gap-3">
+          <div class="icon-box bg-info bg-opacity-10 text-info">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <div>
+            <div class="text-muted fs-9 fw-semibold">สิทธิ 80 ข้าราชการ</div>
+            <div class="fs-4 fw-bold text-primary font-monospace" id="kpiPttype80">0</div>
+            <small class="text-muted fs-9" id="kpiPttype80Pct">0%</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6 col-lg-2">
+        <div class="stat-card p-3 d-flex align-items-center gap-3">
+          <div class="icon-box bg-warning bg-opacity-10 text-warning">
+            <i class="fa-solid fa-shield-heart"></i>
+          </div>
+          <div>
+            <div class="text-muted fs-9 fw-semibold">สิทธิ 81 ประกันสังคม</div>
+            <div class="fs-4 fw-bold text-warning font-monospace" id="kpiPttype81">0</div>
+            <small class="text-muted fs-9" id="kpiPttype81Pct">0%</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Normal -->
+      <div class="col-6 col-lg-2">
+        <div class="stat-card p-3 d-flex align-items-center gap-3 border-success border-opacity-25">
+          <div class="icon-box bg-success bg-opacity-10 text-success">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div>
+            <div class="text-success fs-9 fw-semibold">กลุ่มปกติ (CL)</div>
+            <div class="fs-4 fw-bold text-success font-monospace" id="kpiGroupNormal">0</div>
+            <small class="text-muted fs-9" id="kpiGroupNormalPct">0%</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Risk -->
+      <div class="col-6 col-lg-2">
+        <div class="stat-card p-3 d-flex align-items-center gap-3 border-warning border-opacity-25">
+          <div class="icon-box bg-warning bg-opacity-10 text-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <div class="text-warning fs-9 fw-semibold">กลุ่มเสี่ยง (CL)</div>
+            <div class="fs-4 fw-bold text-warning font-monospace" id="kpiGroupRisk">0</div>
+            <small class="text-muted fs-9" id="kpiGroupRiskPct">0%</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Sick -->
+      <div class="col-6 col-lg-2">
+        <div class="stat-card p-3 d-flex align-items-center gap-3 border-danger border-opacity-25">
+          <div class="icon-box bg-danger bg-opacity-10 text-danger">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </div>
+          <div>
+            <div class="text-danger fs-9 fw-semibold">กลุ่มป่วย (CL)</div>
+            <div class="fs-4 fw-bold text-danger font-monospace" id="kpiGroupSick">0</div>
+            <small class="text-muted fs-9" id="kpiGroupSickPct">0%</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <ul class="nav nav-tabs nav-tabs-custom mb-3" id="mainTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-group-btn" data-bs-toggle="tab" data-bs-target="#tab-group" type="button" role="tab">
+          <i class="fa-solid fa-chart-pie me-1 text-primary"></i> ข้อมูลภาพรวมรายกลุ่ม
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-individual-btn" data-bs-toggle="tab" data-bs-target="#tab-individual" type="button" role="tab">
+          <i class="fa-solid fa-user-doctor me-1 text-teal"></i> ข้อมูลรายบุคคล & กราฟเปรียบเทียบ 3 ปี
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-master-btn" data-bs-toggle="tab" data-bs-target="#tab-master" type="button" role="tab">
+          <i class="fa-solid fa-list-check me-1 text-success"></i> รายการตรวจสุขภาพ (<span id="tabVisitBadge">0</span>)
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-pivot-btn" data-bs-toggle="tab" data-bs-target="#tab-pivot" type="button" role="tab">
+          <i class="fa-solid fa-table-columns me-1 text-danger"></i> ตารางผล Lab ทุกตัวแยกคอลัมน์ (1 Lab/คอลัมน์)
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="mainTabContent">
+
+      <!-- ============================================== -->
+      <!-- TAB 1: ข้อมูลภาพรวมรายกลุ่ม (Group Overview) -->
+      <!-- ============================================== -->
+      <div class="tab-pane fade show active" id="tab-group" role="tabpanel">
+        <div class="row g-4 mb-4">
+          <!-- Chart 1: Pttype Donut -->
+          <div class="col-12 col-lg-4">
+            <div class="data-card h-100">
+              <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-primary"></i> สัดส่วนตามสิทธิการรักษา
+              </h6>
+              <div style="height: 240px; position: relative;">
+                <canvas id="chartPttype"></canvas>
+              </div>
+              <div class="d-flex justify-content-around mt-3 pt-2 border-top fs-8">
+                <div><span class="badge badge-pttype-80">สิทธิ 80</span> ข้าราชการ</div>
+                <div><span class="badge badge-pttype-81">สิทธิ 81</span> ประกันสังคม</div>
+              </div>
             </div>
           </div>
 
-          <!-- Group Filter (CL) -->
-          <div class="col-6 col-md-3 col-lg-2">
-            <select class="form-select form-select-sm" id="filterGroup">
-              <option value="all">กลุ่มสุขภาพ (ทั้งหมด)</option>
-              <option value="ปกติ">กลุ่มปกติ (เขียว)</option>
-              <option value="เสี่ยง">กลุ่มเสี่ยง (เหลือง/ส้ม)</option>
-              <option value="ป่วย">กลุ่มป่วย (แดง)</option>
-              <option value="unassessed">ยังไม่ประเมิน</option>
-            </select>
+          <!-- Chart 2: Age Distribution Bar -->
+          <div class="col-12 col-lg-4">
+            <div class="data-card h-100">
+              <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-chart-simple text-info"></i> การกระจายตามกลุ่มอายุ (ปี)
+              </h6>
+              <div style="height: 240px; position: relative;">
+                <canvas id="chartAge"></canvas>
+              </div>
+              <div class="text-center text-muted fs-9 mt-3 pt-2 border-top">
+                จำแนกกลุ่มอายุเจ้าหน้าที่ที่เข้ารับการตรวจ
+              </div>
+            </div>
           </div>
 
-          <!-- Pttype Filter -->
-          <div class="col-6 col-md-3 col-lg-2">
-            <select class="form-select form-select-sm" id="filterPttype">
-              <option value="all">สิทธิการรักษา (ทั้งหมด)</option>
-              <option value="80">80 - ข้าราชการ</option>
-              <option value="81">81 - ประกันสังคม</option>
-            </select>
+          <!-- Chart 3: Health Group CL Breakdown -->
+          <div class="col-12 col-lg-4">
+            <div class="data-card h-100">
+              <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-heart-pulse text-success"></i> สัดส่วนกลุ่มสุขภาพ (คอลัมน์ CL)
+              </h6>
+              <div style="height: 240px; position: relative;">
+                <canvas id="chartGroup"></canvas>
+              </div>
+              <div class="d-flex justify-content-around mt-3 pt-2 border-top fs-9 text-muted">
+                <div><i class="fa-solid fa-circle text-success me-1"></i>ปกติ</div>
+                <div><i class="fa-solid fa-circle text-warning me-1"></i>เสี่ยง</div>
+                <div><i class="fa-solid fa-circle text-danger me-1"></i>ป่วย</div>
+                <div><i class="fa-solid fa-circle text-secondary me-1"></i>ยังไม่ประเมิน</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group Summary Table Breakdown -->
+        <div class="data-card">
+          <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-table-list text-primary"></i> สรุปสถิติตรวจสุขภาพจำแนกตามสิทธิและช่วงอายุ
+          </h6>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover table-custom mb-0">
+              <thead>
+                <tr>
+                  <th>สิทธิการรักษา</th>
+                  <th class="text-center">อายุ &lt; 30 ปี</th>
+                  <th class="text-center">อายุ 31-40 ปี</th>
+                  <th class="text-center">อายุ 41-50 ปี</th>
+                  <th class="text-center">อายุ 51-60 ปี</th>
+                  <th class="text-center">อายุ &gt; 60 ปี</th>
+                  <th class="text-center bg-light">รวมทั้งหมด (คน)</th>
+                  <th class="text-center bg-light text-danger">กลุ่มป่วย/เสี่ยง</th>
+                </tr>
+              </thead>
+              <tbody id="groupSummaryTableBody">
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">กำลังประมวลผลข้อมูล...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 2: ข้อมูลรายบุคคล & กราฟเปรียบเทียบ 3 ปี -->
+      <!-- ============================================== -->
+      <div class="tab-pane fade" id="tab-individual" role="tabpanel">
+        <div class="row g-4">
+          <!-- Left Column: Patient Search & Select List -->
+          <div class="col-12 col-lg-3">
+            <div class="data-card h-100">
+              <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-address-book text-primary"></i> เลือกผู้รับการตรวจ
+              </h6>
+              <div class="input-group input-group-sm mb-3">
+                <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" id="individualSearch" class="form-control" placeholder="ค้นหาชื่อ หรือ HN...">
+              </div>
+              <div class="patient-select-list" id="individualPatientList">
+                <!-- Dynamic patient list -->
+              </div>
+            </div>
           </div>
 
-          <!-- Date Start -->
-          <div class="col-6 col-md-3 col-lg-2">
-            <input type="date" class="form-control form-select-sm" id="filterDateStart" title="วันที่ตรวจเริ่มต้น">
-          </div>
+          <!-- Right Column: Patient Details, Group/Advice Editor & 3-Year Charts -->
+          <div class="col-12 col-lg-9">
+            <!-- Patient Profile & Assessment Card -->
+            <div class="patient-card mb-4" id="patientDetailCard">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="patient-avatar">
+                    <i class="fa-solid fa-user"></i>
+                  </div>
+                  <div>
+                    <h5 class="fw-bold mb-1 text-dark" id="indivName">-</h5>
+                    <div class="d-flex flex-wrap align-items-center gap-2 fs-8 text-secondary">
+                      <span><strong>HN:</strong> <span id="indivHn">-</span></span>
+                      <span>&bull;</span>
+                      <span><strong>VN:</strong> <span id="indivVn">-</span></span>
+                      <span>&bull;</span>
+                      <span><strong>อายุ:</strong> <span id="indivAge">-</span> ปี</span>
+                      <span>&bull;</span>
+                      <span id="indivPttypeBadge">-</span>
+                    </div>
+                  </div>
+                </div>
 
-          <!-- Date End -->
-          <div class="col-6 col-md-3 col-lg-1">
-            <input type="date" class="form-control form-select-sm" id="filterDateEnd" title="วันที่ตรวจสิ้นสุด">
-          </div>
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-sm btn-outline-primary shadow-sm" onclick="openAssessmentModalFromIndiv()">
+                    <i class="fa-solid fa-pen-to-square me-1"></i> ประเมินกลุ่ม & คำแนะนำ
+                  </button>
+                  <button class="btn btn-sm btn-outline-success shadow-sm" onclick="openPrintFromIndiv()">
+                    <i class="fa-solid fa-print me-1"></i> พิมพ์แบบประเมิน (A4)
+                  </button>
+                </div>
+              </div>
 
-          <!-- Export Excel -->
-          <div class="col-12 col-lg-2 text-lg-end">
-            <button class="btn btn-sm btn-outline-success w-100 d-flex align-items-center justify-content-center gap-1" onclick="exportTableToExcel()">
-              <i class="fa-solid fa-file-excel"></i>
-              <span>ส่งออก Excel</span>
+              <!-- Vitals & Chronic info -->
+              <div class="row g-2 pt-3 border-top fs-8">
+                <div class="col-6 col-md-3">
+                  <span class="text-muted d-block">ดัชนีมวลกาย (BMI):</span>
+                  <span class="fw-bold fs-7" id="indivBmi">-</span>
+                </div>
+                <div class="col-6 col-md-3">
+                  <span class="text-muted d-block">ความดันโลหิต:</span>
+                  <span class="fw-bold fs-7" id="indivBp">-</span>
+                </div>
+                <div class="col-6 col-md-3">
+                  <span class="text-muted d-block">กลุ่มสุขภาพ (CL):</span>
+                  <span id="indivGroupBadge">-</span>
+                </div>
+                <div class="col-6 col-md-3">
+                  <span class="text-muted d-block">คำแนะนำ (CJ):</span>
+                  <span class="fw-bold text-truncate d-block" id="indivAdvice">-</span>
+                </div>
+                <div class="col-12 mt-2">
+                  <span class="text-muted">โรคประจำตัว (PMH): </span>
+                  <span class="fw-semibold text-secondary" id="indivPmh">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3-Year Historical Comparison Charts -->
+            <div class="data-card mb-4">
+              <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-chart-line text-teal"></i> กราฟแนวโน้มผลตรวจสุขภาพย้อนหลัง
+              </h6>
+              <div class="row g-3">
+                <!-- Chart 1: Blood Sugar & Lipids -->
+                <div class="col-12 col-md-6">
+                  <div class="border rounded-3 p-3 bg-light bg-opacity-25 h-100">
+                    <span class="fw-bold fs-8 text-dark d-block mb-2">น้ำตาลและไขมันในเลือด (FBS / Chol / TG / LDL / HDL)</span>
+                    <div style="height: 220px; position: relative;">
+                      <canvas id="chartHistoryLipid"></canvas>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Chart 2: Liver & Kidney -->
+                <div class="col-12 col-md-6">
+                  <div class="border rounded-3 p-3 bg-light bg-opacity-25 h-100">
+                    <span class="fw-bold fs-8 text-dark d-block mb-2">การทำงานของตับและไต (BUN / Cr / SGOT / SGPT / Uric)</span>
+                    <div style="height: 220px; position: relative;">
+                      <canvas id="chartHistoryOrgan"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Individual Lab Results Table -->
+            <div class="data-card">
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
+                  <i class="fa-solid fa-flask-vial text-primary"></i> ผลการตรวจทางห้องปฏิบัติการ (Lab Results)
+                </h6>
+                <span class="badge bg-light text-secondary border fs-9" id="indivLabCount">0 รายการ</span>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover table-custom mb-0">
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;" class="text-center">#</th>
+                      <th>รายการตรวจ</th>
+                      <th>ผลการตรวจ</th>
+                      <th>ค่าอ้างอิงปกติ</th>
+                      <th class="text-center">สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="indivLabTableBody">
+                    <tr>
+                      <td colspan="5" class="text-center py-4 text-muted">กรุณาเลือกผู้รับการตรวจทางด้านซ้าย</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 3: รายการตรวจสุขภาพ (Master List) -->
+      <!-- ============================================== -->
+      <div class="tab-pane fade" id="tab-master" role="tabpanel">
+        <div class="data-card">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
+              <i class="fa-solid fa-list-check text-success"></i> รายชื่อเจ้าหน้าที่และผลการประเมิน
+            </h6>
+            <span class="badge bg-light text-secondary border fs-9" id="masterRowCount">0 รายการ</span>
+          </div>
+          <div class="table-responsive table-responsive-custom">
+            <table class="table table-hover table-custom mb-0" id="masterTable">
+              <thead class="sticky-top-th">
+                <tr>
+                  <th style="width: 45px;" class="text-center">#</th>
+                  <th>วันที่ตรวจ</th>
+                  <th>HN</th>
+                  <th>ชื่อ-นามสกุล</th>
+                  <th class="text-center">อายุ</th>
+                  <th>สิทธิ</th>
+                  <th>กลุ่มสุขภาพ (CL)</th>
+                  <th style="min-width: 170px;">คำแนะนำ (CJ)</th>
+                  <th class="text-center">BMI</th>
+                  <th class="text-center">ความดัน</th>
+                  <th>การวินิจฉัย / โรคประจำตัว</th>
+                  <th class="text-end" style="min-width: 240px;">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="masterTableBody">
+                <tr>
+                  <td colspan="12" class="text-center py-5 text-muted">กำลังโหลดข้อมูล...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 4: ตารางผล Lab ทุกตัวแยกคอลัมน์ (Wide Matrix) -->
+      <!-- ============================================== -->
+      <div class="tab-pane fade" id="tab-pivot" role="tabpanel">
+        <div class="data-card">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <h6 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-table-columns text-danger"></i> ตารางผล Lab ทุกตัวแยก 1 ข้อมูลต่อ 1 คอลัมน์ (Wide Matrix)
+              </h6>
+              <small class="text-muted fs-8">ข้อมูลเรียงตาม Google Sheets มีทั้งข้อมูลทั่วไปและผล Lab ครบทุกตัว</small>
+            </div>
+            <button class="btn btn-sm btn-outline-success d-flex align-items-center gap-1" onclick="exportTableToExcel()">
+              <i class="fa-solid fa-file-excel"></i> บันทึกเป็น Excel
             </button>
           </div>
-
+          <div class="table-responsive table-responsive-custom border rounded-3">
+            <table class="table table-bordered table-hover table-custom mb-0" id="matrixTable">
+              <thead class="sticky-top-th" id="matrixThead">
+                <!-- Headers from Google Sheets -->
+              </tbody>
+              <tbody id="matrixTbody">
+                <tr>
+                  <td class="text-center py-5 text-muted">กำลังเตรียมตาราง Matrix...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+
     </div>
-
-    <!-- Data Table Card -->
-    <div class="card border-0 shadow-sm rounded-3">
-      <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2">
-          <i class="fa-solid fa-table-list text-primary"></i>
-          <span class="fw-bold">รายชื่อเจ้าหน้าที่ตรวจสุขภาพ</span>
-          <span id="tableRowCount" class="badge bg-light text-secondary border fs-9">0 รายการ</span>
-        </div>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-hover table-custom" id="patientTable">
-          <thead>
-            <tr>
-              <th style="width: 45px;" class="text-center">#</th>
-              <th>วันที่ตรวจ</th>
-              <th>HN</th>
-              <th>ชื่อ-นามสกุล</th>
-              <th class="text-center">อายุ</th>
-              <th>สิทธิ</th>
-              <th>กลุ่มสุขภาพ (CL)</th>
-              <th style="min-width: 170px;">คำแนะนำ (CJ)</th>
-              <th class="text-center">BMI</th>
-              <th class="text-center">ความดัน</th>
-              <th class="text-end" style="min-width: 220px;">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody id="patientTableBody">
-            <!-- Dynamic rows will be rendered here -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Loading Spinner for Table -->
-      <div id="tableLoading" class="text-center py-5">
-        <div class="spinner-border text-primary mb-2" role="status"></div>
-        <div class="text-muted fs-8">กำลังโหลดข้อมูลจาก Google Sheets...</div>
-      </div>
-    </div>
-
-  </main>
+  </div>
 
   <!-- ========================================================================= -->
   <!-- 4. Modal: บันทึกข้อมูล กลุ่ม CL (ปกติ, เสี่ยง, ป่วย) และ คำแนะนำ CJ -->
@@ -393,7 +697,7 @@
       <div class="modal-content border-0 shadow">
         <div class="modal-header bg-light py-2">
           <h5 class="modal-title font-heading fs-6">
-            <i class="fa-solid fa-print me-1 text-primary"></i> พิมพ์แบบประเมินผลการตรวจสุขภาพประจำปี (A4)
+            <i class="fa-solid fa-print me-1 text-primary"></i> พิมพ์แบบประเมินผลการตรวจสุขภาพประจำปีโรงพยาบาลไทรโยค (A4)
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
@@ -420,8 +724,24 @@
               <div class="col-4"><strong>สิทธิการรักษา:</strong> <span class="dot-line" id="asmPttype" style="min-width: 100px;">-</span></div>
             </div>
 
-            <!-- 2. สรุปผลการตรวจและคำแนะนำ (สำหรับแพทย์) -->
-            <div class="section-header">2. สรุปผลการตรวจสุขภาพและคำแนะนำ (สำหรับแพทย์ผู้ตรวจ)</div>
+            <!-- 2. ตาราง 19 รายการตรวจ -->
+            <div class="section-header">2. ผลการตรวจสุขภาพและห้องปฏิบัติการ</div>
+            <table class="assessment-table">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding-left: 8px;">รายการตรวจ</th>
+                  <th style="width: 70px;">ปกติ</th>
+                  <th style="width: 75px;">ผิดปกติ</th>
+                  <th style="width: 240px; text-align: left; padding-left: 8px;">ค่ามาตราฐาน / ค่าตรวจที่ได้</th>
+                </tr>
+              </thead>
+              <tbody id="asmTableBody">
+                <!-- 19 lab & vital items dynamically populated -->
+              </tbody>
+            </table>
+
+            <!-- 3. สรุปผลการตรวจและคำแนะนำ (สำหรับแพทย์) -->
+            <div class="section-header">3. สรุปผลการตรวจสุขภาพและคำแนะนำ (สำหรับแพทย์ผู้ตรวจ)</div>
             <div class="p-2 border rounded-1 mb-2 fs-8 bg-light bg-opacity-25">
               <div class="mb-2">
                 <strong>สุขภาพทั่วไปอยู่ในเกณฑ์:</strong>
@@ -523,8 +843,8 @@
               </div>
             </div>
 
-            <!-- 3. ผลการตรวจสุขภาพช่องปากและฟัน -->
-            <div class="section-header">3. ผลการตรวจสุขภาพช่องปากและฟัน (สำหรับทันตแพทย์)</div>
+            <!-- 4. ผลการตรวจสุขภาพช่องปากและฟัน -->
+            <div class="section-header">4. ผลการตรวจสุขภาพช่องปากและฟัน (สำหรับทันตแพทย์)</div>
             <div class="p-2 border rounded-1 fs-8 bg-light bg-opacity-25">
               <div class="row g-2 align-items-center">
                 <div class="col-7">
@@ -576,10 +896,10 @@
           <div class="mb-3">
             <label class="form-label fw-semibold fs-8">Google Apps Script Web App URL</label>
             <textarea class="form-control font-monospace fs-8" id="apiUrlInput" rows="3"></textarea>
-            <div class="form-text fs-9">URL ที่ได้จากการ Deploy เป็น Web App (สิทธิ์ Anyone)</div>
+            <div class="form-text fs-9">URL จากการ Deploy เป็น Web App (สิทธิ์ Anyone)</div>
           </div>
           <div class="alert alert-info py-2 fs-9 mb-0">
-            <i class="fa-solid fa-circle-info me-1"></i> ท่านสามารถเปลี่ยนแปลง URL ได้ตลอดเวลาโดยระบบจะบันทึกไว้ในเบราว์เซอร์ของท่าน
+            <i class="fa-solid fa-circle-info me-1"></i> URL นี้จะถูกบันทึกไว้ในเบราว์เซอร์ของท่าน สามารถเปลี่ยนได้ตามต้องการ
           </div>
         </div>
         <div class="modal-footer py-2">
@@ -595,6 +915,9 @@
 
   <!-- SweetAlert2 JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.all.min.js"></script>
+
+  <!-- Chart.js 4.4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- SheetJS (XLSX) for Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>

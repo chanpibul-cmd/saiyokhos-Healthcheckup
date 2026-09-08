@@ -1,10 +1,15 @@
 /**
  * =========================================================================
- * app.js - ระบบตรวจสุขภาพเจ้าหน้าที่ รพ.ไทรโยค (GitHub Pages Client)
+ * app.js - ระบบตรวจสุขภาพประจำปีเจ้าหน้าที่ โรงพยาบาลไทรโยค (GitHub Pages)
+ * ทำงานร่วมกับ Google Apps Script Web App และ Google Sheets
  * =========================================================================
  */
 
+<<<<<<< HEAD
+// Web App URL เริ่มต้น (อัปเดตตรงตามที่ Deploy ล่าสุด)
+=======
 // URL ของ Google Apps Script Web App (สามารถปรับเปลี่ยนผ่านหน้าเว็บได้)
+>>>>>>> 0b4d988490b791f50ceb7cd5f5d5cc193bc73f21
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzsfEEHvUof0MJL5fk14r_eAmqO-K0oP68bod-Q7oTOdlsm8YMqzS6Ick17SQn3lNw/exec';
 
 const appState = {
@@ -13,8 +18,10 @@ const appState = {
   user: JSON.parse(localStorage.getItem('saiyok_auth_user') || 'null'),
   allRows: [],
   filteredRows: [],
-  selectedRow: null,
   headers: [],
+  selectedPatientHn: null,
+  selectedRow: null,
+  charts: {},
   stats: { total: 0, normal: 0, risk: 0, sick: 0, unassessed: 0, has_advice: 0 }
 };
 
@@ -22,7 +29,7 @@ const appState = {
 // เมื่อโหลดหน้าเว็บเสร็จสมบูรณ์
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-  // ตรวจสอบการตั้งค่า API URL
+  // ตั้งค่าช่อง URL
   const apiUrlInput = document.getElementById('apiUrlInput');
   if (apiUrlInput) apiUrlInput.value = appState.apiUrl;
 
@@ -39,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =========================================================================
-// ระบบยืนยันตัวตน (Authentication & Login)
+// 1. ระบบยืนยันตัวตน (Authentication & Login)
 // =========================================================================
 function showLoginView() {
   document.getElementById('loginSection').classList.remove('d-none');
@@ -51,7 +58,7 @@ function showDashboardView() {
   document.getElementById('loginSection').classList.add('d-none');
   document.getElementById('dashboardSection').classList.remove('d-none');
   document.getElementById('navUserControls').classList.remove('d-none');
-  
+
   const userDisp = document.getElementById('navUserName');
   if (userDisp && appState.user) {
     userDisp.textContent = appState.user.displayName || appState.user.username;
@@ -79,12 +86,11 @@ async function handleLogin(event) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> กำลังตรวจสอบ...';
 
   try {
-    // ส่งคำขอเข้าสู่ระบบไปยัง Google Apps Script
-    const response = await fetch(`${appState.apiUrl}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
+    const url = `${appState.apiUrl}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+    const response = await fetch(url);
     const res = await response.json();
 
     if (res.success && res.token) {
-      // บันทึกสถานะการล็อกอิน
       appState.token = res.token;
       appState.user = res.user;
       localStorage.setItem('saiyok_auth_token', res.token);
@@ -101,27 +107,14 @@ async function handleLogin(event) {
       showDashboardView();
       loadSheetData();
     } else {
-      // ตรวจสอบสำรองกรณีเรียกตรงในหน้าบ้าน
-      if (username === 'admin11278' && password === 'admin11278') {
-        const fallbackUser = { username: 'admin11278', displayName: 'ผู้ดูแลระบบ รพ.ไทรโยค', role: 'admin' };
-        const fallbackToken = 'local_token_admin11278_' + new Date().getTime();
-        appState.token = fallbackToken;
-        appState.user = fallbackUser;
-        localStorage.setItem('saiyok_auth_token', fallbackToken);
-        localStorage.setItem('saiyok_auth_user', JSON.stringify(fallbackUser));
-
-        showDashboardView();
-        loadSheetData();
-      } else {
-        errEl.textContent = res.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
-        errEl.classList.remove('d-none');
-      }
+      errEl.textContent = res.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      errEl.classList.remove('d-none');
     }
   } catch (err) {
-    console.warn('API direct login error, checking standard fallback...', err);
+    console.warn('API error, checking direct fallback...', err);
     if (username === 'admin11278' && password === 'admin11278') {
       const fallbackUser = { username: 'admin11278', displayName: 'ผู้ดูแลระบบ รพ.ไทรโยค', role: 'admin' };
-      const fallbackToken = 'local_token_admin11278_' + new Date().getTime();
+      const fallbackToken = 'local_admin_' + new Date().getTime();
       appState.token = fallbackToken;
       appState.user = fallbackUser;
       localStorage.setItem('saiyok_auth_token', fallbackToken);
@@ -130,7 +123,7 @@ async function handleLogin(event) {
       showDashboardView();
       loadSheetData();
     } else {
-      errEl.textContent = 'ไม่สามารถเชื่อมต่อระบบ API ได้ หรือรหัสผ่านไม่ถูกต้อง';
+      errEl.textContent = 'ไม่สามารถเชื่อมต่อ API ได้ หรือรหัสผ่านไม่ถูกต้อง';
       errEl.classList.remove('d-none');
     }
   } finally {
@@ -160,18 +153,21 @@ function handleLogout() {
 }
 
 // =========================================================================
-// การโหลดและประมวลผลข้อมูลจาก Google Sheets
+// 2. การดึงข้อมูลจาก Google Sheets ผ่าน Google Apps Script API
 // =========================================================================
 async function loadSheetData() {
-  const loadingEl = document.getElementById('tableLoading');
-  const tbody = document.getElementById('patientTableBody');
-  if (loadingEl) loadingEl.classList.remove('d-none');
-  if (tbody) tbody.innerHTML = '';
+  Swal.fire({
+    title: 'กำลังเชื่อมต่อ Google Sheets...',
+    text: 'กำลังประมวลผลข้อมูลสุขภาพและผล Lab',
+    allowOutsideClick: false,
+    didOpen: () => Swal.showLoading()
+  });
 
   try {
     const url = `${appState.apiUrl}?action=get_data&token=${encodeURIComponent(appState.token)}`;
     const response = await fetch(url);
     const data = await response.json();
+    Swal.close();
 
     if (data.require_login) {
       handleLogout();
@@ -186,8 +182,13 @@ async function loadSheetData() {
     appState.allRows = data.rows || [];
     appState.stats = data.stats || {};
 
+    // อัปเดตการแสดงผลทุกส่วน
     updateKpiCards();
     applyFilters();
+    renderGroupCharts();
+    renderGroupSummaryTable();
+    buildPatientSelectList();
+    renderMatrixTable();
 
   } catch (err) {
     console.error(err);
@@ -195,37 +196,60 @@ async function loadSheetData() {
       icon: 'error',
       title: 'โหลดข้อมูลล้มเหลว',
       text: err.message,
-      footer: '<small>กรุณาตรวจสอบว่า Google Apps Script Web App ได้รับการ Deploy และอนุญาตสิทธิ์ "Anyone" หรือยัง</small>'
+      footer: '<small>กรุณาตรวจสอบการ Deploy ของ Google Apps Script Web App</small>'
     });
-  } finally {
-    if (loadingEl) loadingEl.classList.add('d-none');
   }
 }
 
 // =========================================================================
-// การอัปเดต KPI Cards
+// 3. การอัปเดตสถิติ KPI Cards
 // =========================================================================
 function updateKpiCards() {
-  const s = appState.stats;
-  document.getElementById('statTotal').textContent = (s.total || 0).toLocaleString();
-  document.getElementById('statNormal').textContent = (s.normal || 0).toLocaleString();
-  document.getElementById('statRisk').textContent = (s.risk || 0).toLocaleString();
-  document.getElementById('statSick').textContent = (s.sick || 0).toLocaleString();
-  document.getElementById('statUnassessed').textContent = (s.unassessed || 0).toLocaleString();
-  document.getElementById('statAdvice').textContent = (s.has_advice || 0).toLocaleString();
+  const rows = appState.allRows;
+  const total = rows.length;
+
+  let count80 = 0, count81 = 0;
+  let countNormal = 0, countRisk = 0, countSick = 0;
+
+  rows.forEach(r => {
+    if (r.pttype === '80') count80++;
+    else if (r.pttype === '81') count81++;
+
+    if (r.group_cl === 'ปกติ') countNormal++;
+    else if (r.group_cl === 'เสี่ยง') countRisk++;
+    else if (r.group_cl === 'ป่วย') countSick++;
+  });
+
+  document.getElementById('kpiTotalVisits').textContent = total.toLocaleString();
+  document.getElementById('kpiPttype80').textContent = count80.toLocaleString();
+  document.getElementById('kpiPttype80Pct').textContent = total > 0 ? `${((count80/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%';
+
+  document.getElementById('kpiPttype81').textContent = count81.toLocaleString();
+  document.getElementById('kpiPttype81Pct').textContent = total > 0 ? `${((count81/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%';
+
+  document.getElementById('kpiGroupNormal').textContent = countNormal.toLocaleString();
+  document.getElementById('kpiGroupNormalPct').textContent = total > 0 ? `${((countNormal/total)*100).toFixed(1)}%` : '0%';
+
+  document.getElementById('kpiGroupRisk').textContent = countRisk.toLocaleString();
+  document.getElementById('kpiGroupRiskPct').textContent = total > 0 ? `${((countRisk/total)*100).toFixed(1)}%` : '0%';
+
+  document.getElementById('kpiGroupSick').textContent = countSick.toLocaleString();
+  document.getElementById('kpiGroupSickPct').textContent = total > 0 ? `${((countSick/total)*100).toFixed(1)}%` : '0%';
 }
 
 // =========================================================================
-// การกรองข้อมูลและการแสดงตาราง (Filter & Render Table)
+// 4. ตัวกรองและการค้นหา (Filters & Presets)
 // =========================================================================
 function setupEventListeners() {
-  const searchInput = document.getElementById('searchBox');
+  const searchFilter = document.getElementById('filterSearch');
+  const indivSearch = document.getElementById('individualSearch');
   const groupFilter = document.getElementById('filterGroup');
   const pttypeFilter = document.getElementById('filterPttype');
-  const dateStart = document.getElementById('filterDateStart');
-  const dateEnd = document.getElementById('filterDateEnd');
+  const dateStart = document.getElementById('filterStartDate');
+  const dateEnd = document.getElementById('filterEndDate');
 
-  if (searchInput) searchInput.addEventListener('input', debounce(applyFilters, 250));
+  if (searchFilter) searchFilter.addEventListener('input', debounce(applyFilters, 250));
+  if (indivSearch) indivSearch.addEventListener('input', debounce(filterPatientSelectList, 250));
   if (groupFilter) groupFilter.addEventListener('change', applyFilters);
   if (pttypeFilter) pttypeFilter.addEventListener('change', applyFilters);
   if (dateStart) dateStart.addEventListener('change', applyFilters);
@@ -233,22 +257,22 @@ function setupEventListeners() {
 }
 
 function applyFilters() {
-  const query = (document.getElementById('searchBox')?.value || '').toLowerCase().trim();
+  const query = (document.getElementById('filterSearch')?.value || '').toLowerCase().trim();
   const group = document.getElementById('filterGroup')?.value || 'all';
   const pttype = document.getElementById('filterPttype')?.value || 'all';
-  const start = document.getElementById('filterDateStart')?.value || '';
-  const end = document.getElementById('filterDateEnd')?.value || '';
+  const start = document.getElementById('filterStartDate')?.value || '';
+  const end = document.getElementById('filterEndDate')?.value || '';
 
   appState.filteredRows = appState.allRows.filter(row => {
-    // 1. ค้นหา HN, VN, ชื่อ-นามสกุล
+    // 1. ค้นหา
     if (query) {
-      const matchQuery = (row.hn && row.hn.toLowerCase().includes(query)) ||
-                         (row.vn && row.vn.toLowerCase().includes(query)) ||
-                         (row.ptname && row.ptname.toLowerCase().includes(query));
-      if (!matchQuery) return false;
+      const match = (row.hn && row.hn.toLowerCase().includes(query)) ||
+                    (row.vn && row.vn.toLowerCase().includes(query)) ||
+                    (row.ptname && row.ptname.toLowerCase().includes(query));
+      if (!match) return false;
     }
 
-    // 2. กรองกลุ่ม CL (ปกติ / เสี่ยง / ป่วย / ยังไม่ประเมิน)
+    // 2. กลุ่ม CL
     if (group !== 'all') {
       if (group === 'unassessed') {
         if (row.group_cl) return false;
@@ -257,30 +281,435 @@ function applyFilters() {
       }
     }
 
-    // 3. กรองสิทธิ
-    if (pttype !== 'all') {
-      if (row.pttype !== pttype) return false;
-    }
+    // 3. สิทธิ
+    if (pttype !== 'all' && row.pttype !== pttype) return false;
 
-    // 4. กรองวันที่ตรวจ
+    // 4. วันที่
     if (start && row.vstdate && row.vstdate < start) return false;
     if (end && row.vstdate && row.vstdate > end) return false;
 
     return true;
   });
 
-  renderTable(appState.filteredRows);
+  document.getElementById('tabVisitBadge').textContent = appState.filteredRows.length.toLocaleString();
+  document.getElementById('masterRowCount').textContent = `${appState.filteredRows.length.toLocaleString()} รายการ`;
+
+  renderMasterTable(appState.filteredRows);
 }
 
-function renderTable(rows) {
-  const tbody = document.getElementById('patientTableBody');
-  const countEl = document.getElementById('tableRowCount');
+function resetFilters() {
+  document.getElementById('filterSearch').value = '';
+  document.getElementById('filterGroup').value = 'all';
+  document.getElementById('filterPttype').value = 'all';
+  setPresetDate('jul_aug_2026');
+}
+
+function setPresetDate(type) {
+  const s = document.getElementById('filterStartDate');
+  const e = document.getElementById('filterEndDate');
+  if (!s || !e) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (type === 'jul_aug_2026') {
+    s.value = '2026-07-01';
+    e.value = '2026-08-31';
+  } else if (type === 'today') {
+    s.value = today;
+    e.value = today;
+  } else if (type === 'year_2026') {
+    s.value = '2026-01-01';
+    e.value = '2026-12-31';
+  } else if (type === 'year_2025') {
+    s.value = '2025-01-01';
+    e.value = '2025-12-31';
+  } else if (type === 'all_data') {
+    s.value = '';
+    e.value = '';
+  }
+
+  applyFilters();
+}
+
+// =========================================================================
+// 5. TAB 1: กราฟภาพรวมรายกลุ่ม และ ตารางสรุปช่วงอายุ
+// =========================================================================
+function renderGroupCharts() {
+  const rows = appState.allRows;
+  if (!rows.length) return;
+
+  // 1. Pttype Donut
+  let p80 = 0, p81 = 0, pOther = 0;
+  rows.forEach(r => {
+    if (r.pttype === '80') p80++;
+    else if (r.pttype === '81') p81++;
+    else pOther++;
+  });
+
+  destroyChart('chartPttype');
+  const ctxPttype = document.getElementById('chartPttype');
+  if (ctxPttype) {
+    appState.charts['chartPttype'] = new Chart(ctxPttype, {
+      type: 'doughnut',
+      data: {
+        labels: ['สิทธิ 80 ข้าราชการ', 'สิทธิ 81 ประกันสังคม', 'สิทธิอื่นๆ'],
+        datasets: [{
+          data: [p80, p81, pOther],
+          backgroundColor: ['#0284c7', '#f59e0b', '#94a3b8'],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  // 2. Age Bar
+  let age1 = 0, age2 = 0, age3 = 0, age4 = 0, age5 = 0;
+  rows.forEach(r => {
+    const age = parseInt(r.age_y, 10) || 0;
+    if (age < 30) age1++;
+    else if (age <= 40) age2++;
+    else if (age <= 50) age3++;
+    else if (age <= 60) age4++;
+    else age5++;
+  });
+
+  destroyChart('chartAge');
+  const ctxAge = document.getElementById('chartAge');
+  if (ctxAge) {
+    appState.charts['chartAge'] = new Chart(ctxAge, {
+      type: 'bar',
+      data: {
+        labels: ['< 30 ปี', '31-40 ปี', '41-50 ปี', '51-60 ปี', '> 60 ปี'],
+        datasets: [{
+          label: 'จำนวน (คน)',
+          data: [age1, age2, age3, age4, age5],
+          backgroundColor: '#0f766e',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
+  // 3. Health Group CL
+  let gNorm = 0, gRisk = 0, gSick = 0, gUn = 0;
+  rows.forEach(r => {
+    if (r.group_cl === 'ปกติ') gNorm++;
+    else if (r.group_cl === 'เสี่ยง') gRisk++;
+    else if (r.group_cl === 'ป่วย') gSick++;
+    else gUn++;
+  });
+
+  destroyChart('chartGroup');
+  const ctxGroup = document.getElementById('chartGroup');
+  if (ctxGroup) {
+    appState.charts['chartGroup'] = new Chart(ctxGroup, {
+      type: 'doughnut',
+      data: {
+        labels: ['ปกติ', 'เสี่ยง', 'ป่วย', 'ยังไม่ประเมิน'],
+        datasets: [{
+          data: [gNorm, gRisk, gSick, gUn],
+          backgroundColor: ['#16a34a', '#eab308', '#dc2626', '#94a3b8'],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+}
+
+function renderGroupSummaryTable() {
+  const tbody = document.getElementById('groupSummaryTableBody');
+  if (!tbody) return;
+
+  const rows = appState.allRows;
+  const groups = {
+    '80': { name: 'สิทธิ 80 (ข้าราชการ รพ.ไทรโยค)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 },
+    '81': { name: 'สิทธิ 81 (ประกันสังคม)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 }
+  };
+
+  rows.forEach(r => {
+    const pt = r.pttype === '80' ? '80' : '81';
+    const g = groups[pt];
+    const age = parseInt(r.age_y, 10) || 0;
+
+    g.total++;
+    if (r.group_cl === 'ป่วย' || r.group_cl === 'เสี่ยง') g.sick++;
+
+    if (age < 30) g.a1++;
+    else if (age <= 40) g.a2++;
+    else if (age <= 50) g.a3++;
+    else if (age <= 60) g.a4++;
+    else g.a5++;
+  });
+
+  tbody.innerHTML = '';
+  ['80', '81'].forEach(k => {
+    const g = groups[k];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="fw-bold">${g.name}</td>
+      <td class="text-center font-monospace">${g.a1}</td>
+      <td class="text-center font-monospace">${g.a2}</td>
+      <td class="text-center font-monospace">${g.a3}</td>
+      <td class="text-center font-monospace">${g.a4}</td>
+      <td class="text-center font-monospace">${g.a5}</td>
+      <td class="text-center fw-bold bg-light font-monospace">${g.total}</td>
+      <td class="text-center fw-bold bg-light text-danger font-monospace">${g.sick}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// =========================================================================
+// 6. TAB 2: ข้อมูลรายบุคคล & กราฟเปรียบเทียบย้อนหลัง 3 ปี
+// =========================================================================
+function buildPatientSelectList() {
+  const container = document.getElementById('individualPatientList');
+  if (!container) return;
+
+  const rows = appState.allRows;
+  container.innerHTML = '';
+
+  if (!rows.length) {
+    container.innerHTML = '<div class="text-center text-muted py-4">ไม่พบรายชื่อเจ้าหน้าที่</div>';
+    return;
+  }
+
+  // Group unique HN
+  const patientsMap = new Map();
+  rows.forEach(r => {
+    if (r.hn && !patientsMap.has(r.hn)) {
+      patientsMap.set(r.hn, r);
+    }
+  });
+
+  const uniquePatients = Array.from(patientsMap.values());
+
+  uniquePatients.forEach((p, idx) => {
+    const div = document.createElement('div');
+    div.className = `patient-select-item mb-2 ${idx === 0 ? 'active' : ''}`;
+    div.dataset.hn = p.hn;
+
+    let groupDot = '<span class="text-secondary">&bull;</span>';
+    if (p.group_cl === 'ปกติ') groupDot = '<i class="fa-solid fa-circle text-success fs-9"></i>';
+    else if (p.group_cl === 'เสี่ยง') groupDot = '<i class="fa-solid fa-circle text-warning fs-9"></i>';
+    else if (p.group_cl === 'ป่วย') groupDot = '<i class="fa-solid fa-circle text-danger fs-9"></i>';
+
+    div.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="fw-bold text-dark fs-8">${p.ptname}</div>
+        <div>${groupDot}</div>
+      </div>
+      <div class="d-flex align-items-center gap-2 text-muted fs-9">
+        <span class="font-monospace">${p.hn}</span>
+        <span>&bull;</span>
+        <span>${p.age_y} ปี</span>
+        <span>&bull;</span>
+        <span>สิทธิ ${p.pttype}</span>
+      </div>
+    `;
+
+    div.addEventListener('click', () => {
+      document.querySelectorAll('.patient-select-item').forEach(el => el.classList.remove('active'));
+      div.classList.add('active');
+      selectPatient(p.hn);
+    });
+
+    container.appendChild(div);
+  });
+
+  // เลือกคนแรกเป็นค่าเริ่มต้น
+  if (uniquePatients.length > 0) {
+    selectPatient(uniquePatients[0].hn);
+  }
+}
+
+function filterPatientSelectList() {
+  const query = (document.getElementById('individualSearch')?.value || '').toLowerCase().trim();
+  document.querySelectorAll('.patient-select-item').forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.style.display = text.includes(query) ? 'block' : 'none';
+  });
+}
+
+function selectPatient(hn) {
+  appState.selectedPatientHn = hn;
+  const row = appState.allRows.find(r => r.hn === hn);
+  if (!row) return;
+
+  appState.selectedRow = row;
+
+  // Profile Card
+  document.getElementById('indivName').textContent = row.ptname || '-';
+  document.getElementById('indivHn').textContent = row.hn || '-';
+  document.getElementById('indivVn').textContent = row.vn || '-';
+  document.getElementById('indivAge').textContent = row.age_y || '-';
+  document.getElementById('indivBmi').textContent = row.bmi || '-';
+  document.getElementById('indivBp').textContent = row.bp || '-';
+  document.getElementById('indivPmh').textContent = row.pmh || 'ปฏิเสธโรคประจำตัว';
+  document.getElementById('indivAdvice').textContent = row.advice_cj || 'ยังไม่มีคำแนะนำ';
+
+  // Badges
+  const pttypeClass = row.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
+  document.getElementById('indivPttypeBadge').innerHTML = `<span class="badge ${pttypeClass}">${row.pttype} ${row.pttype_name || ''}</span>`;
+
+  let gBadge = '<span class="badge-group unassessed">ยังไม่ประเมิน</span>';
+  if (row.group_cl === 'ปกติ') gBadge = '<span class="badge-group normal">ปกติ</span>';
+  else if (row.group_cl === 'เสี่ยง') gBadge = '<span class="badge-group risk">เสี่ยง</span>';
+  else if (row.group_cl === 'ป่วย') gBadge = '<span class="badge-group sick">ป่วย</span>';
+  document.getElementById('indivGroupBadge').innerHTML = gBadge;
+
+  // 3-Year Historical Comparison Charts
+  renderPatientHistoryCharts(hn);
+
+  // Individual Labs Table
+  renderIndividualLabTable(row);
+}
+
+function renderPatientHistoryCharts(hn) {
+  // Find all rows for this HN across years
+  const patientVisits = appState.allRows.filter(r => r.hn === hn);
+  // Sort by date ascending
+  patientVisits.sort((a, b) => (a.vstdate || '').localeCompare(b.vstdate || ''));
+
+  const labels = patientVisits.map(v => {
+    const d = v.vstdate || '';
+    return d ? (parseInt(d.slice(0, 4), 10) + 543) : 'ตรวจ';
+  });
+
+  // Extract values
+  const fbsVals = patientVisits.map(v => extractLabValue(v, ['fbs', 'blood sugar']));
+  const cholVals = patientVisits.map(v => extractLabValue(v, ['cholesterol']));
+  const tgVals = patientVisits.map(v => extractLabValue(v, ['triglyceride']));
+  const ldlVals = patientVisits.map(v => extractLabValue(v, ['ldl']));
+  const hdlVals = patientVisits.map(v => extractLabValue(v, ['hdl']));
+
+  const bunVals = patientVisits.map(v => extractLabValue(v, ['bun']));
+  const crVals = patientVisits.map(v => extractLabValue(v, ['creatinine']));
+  const uricVals = patientVisits.map(v => extractLabValue(v, ['uric']));
+  const sgotVals = patientVisits.map(v => extractLabValue(v, ['sgot', 'ast']));
+  const sgptVals = patientVisits.map(v => extractLabValue(v, ['sgpt', 'alt']));
+
+  // Chart 1: Lipids & Sugar
+  destroyChart('chartHistoryLipid');
+  const ctxLipid = document.getElementById('chartHistoryLipid');
+  if (ctxLipid) {
+    appState.charts['chartHistoryLipid'] = new Chart(ctxLipid, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'FBS', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
+          { label: 'Chol', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
+          { label: 'TG', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
+          { label: 'LDL', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
+          { label: 'HDL', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: false } }
+      }
+    });
+  }
+
+  // Chart 2: Liver & Kidney
+  destroyChart('chartHistoryOrgan');
+  const ctxOrgan = document.getElementById('chartHistoryOrgan');
+  if (ctxOrgan) {
+    appState.charts['chartHistoryOrgan'] = new Chart(ctxOrgan, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'BUN', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
+          { label: 'Cr', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 },
+          { label: 'Uric', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 5 },
+          { label: 'SGOT', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
+          { label: 'SGPT', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: false } }
+      }
+    });
+  }
+}
+
+function extractLabValue(row, keywords) {
+  if (!row || !row.rawRow || !appState.headers) return null;
+  for (let c = 18; c < appState.headers.length; c++) {
+    const h = (appState.headers[c] || '').toLowerCase();
+    for (const kw of keywords) {
+      if (h.includes(kw)) {
+        const val = row.rawRow[c];
+        const num = parseFloat(val);
+        return isNaN(num) ? null : num;
+      }
+    }
+  }
+  return null;
+}
+
+function renderIndividualLabTable(row) {
+  const tbody = document.getElementById('indivLabTableBody');
+  const countBadge = document.getElementById('indivLabCount');
   if (!tbody) return;
 
   tbody.innerHTML = '';
-  if (countEl) countEl.textContent = `พบ ${rows.length.toLocaleString()} รายการ`;
+  if (!row || !row.rawRow || !appState.headers) return;
 
-  if (rows.length === 0) {
+  let labCount = 0;
+  for (let c = 18; c < appState.headers.length; c++) {
+    const headerName = appState.headers[c] || '';
+    if (c === 87 || c === 89) continue; // Skip CJ and CL headers in lab list
+
+    const val = row.rawRow[c];
+    if (val === null || val === undefined || String(val).trim() === '') continue;
+
+    labCount++;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="text-center text-muted fs-9">${labCount}</td>
+      <td class="fw-bold">${headerName}</td>
+      <td class="font-monospace fw-semibold">${val}</td>
+      <td class="text-muted fs-8">-</td>
+      <td class="text-center"><span class="badge badge-normal">ปกติ</span></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  if (countBadge) countBadge.textContent = `${labCount} รายการ`;
+}
+
+// =========================================================================
+// 7. TAB 3: รายการตรวจสุขภาพ (Master List Table)
+// =========================================================================
+function renderMasterTable(rows) {
+  const tbody = document.getElementById('masterTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
     tbody.innerHTML = `
       <tr>
         <td colspan="12" class="text-center py-5 text-muted">
@@ -295,35 +724,32 @@ function renderTable(rows) {
   rows.forEach((r, idx) => {
     const tr = document.createElement('tr');
 
-    // Badge กลุ่ม CL (ปกติ, เสี่ยง, ป่วย)
-    let groupBadge = '<span class="badge-group unassessed"><i class="fa-solid fa-circle-question"></i> ยังไม่ประเมิน</span>';
-    if (r.group_cl === 'ปกติ') {
-      groupBadge = '<span class="badge-group normal"><i class="fa-solid fa-circle-check"></i> ปกติ</span>';
-    } else if (r.group_cl === 'เสี่ยง') {
-      groupBadge = '<span class="badge-group risk"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยง</span>';
-    } else if (r.group_cl === 'ป่วย') {
-      groupBadge = '<span class="badge-group sick"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>';
-    }
+    let groupBadge = '<span class="badge-group unassessed">ยังไม่ประเมิน</span>';
+    if (r.group_cl === 'ปกติ') groupBadge = '<span class="badge-group normal"><i class="fa-solid fa-circle-check"></i> ปกติ</span>';
+    else if (r.group_cl === 'เสี่ยง') groupBadge = '<span class="badge-group risk"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยง</span>';
+    else if (r.group_cl === 'ป่วย') groupBadge = '<span class="badge-group sick"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>';
 
-    // คำแนะนำ CJ
+    const pttypeClass = r.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
     const adviceText = r.advice_cj ? r.advice_cj : '<span class="text-muted fst-italic">-</span>';
-
-    // รายละเอียดการวินิจฉัย
-    const diagDesc = r.all_diag_desc ? r.all_diag_desc : (r.pdx ? `DX: ${r.pdx}` : '-');
+    const diagText = r.all_diag_desc || r.pmh || '-';
 
     tr.innerHTML = `
-      <td class="text-center text-muted fs-8">${idx + 1}</td>
-      <td class="text-nowrap">${r.vstdate || '-'}</td>
+      <td class="text-center text-muted fs-9">${idx + 1}</td>
+      <td>${r.vstdate || '-'}</td>
       <td class="fw-bold font-monospace text-primary">${r.hn || '-'}</td>
-      <td class="fw-bold text-nowrap">${r.ptname || '-'}</td>
+      <td class="fw-bold">${r.ptname || '-'}</td>
       <td class="text-center">${r.age_y || '-'}</td>
-      <td><span class="badge bg-light text-dark border">${r.pttype || ''} ${r.pttype_name || ''}</span></td>
+      <td><span class="badge ${pttypeClass}">${r.pttype}</span></td>
       <td>${groupBadge}</td>
       <td class="advice-cell" title="${r.advice_cj || ''}">${adviceText}</td>
       <td class="text-center font-monospace">${r.bmi || '-'}</td>
-      <td class="text-center text-nowrap">${r.bp || '-'}</td>
+      <td class="text-center text-nowrap font-monospace">${r.bp || '-'}</td>
+      <td class="text-truncate" style="max-width: 150px;" title="${diagText}">${diagText}</td>
       <td class="text-nowrap text-end">
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="openAssessmentModal(${r.rowIndex})" title="บันทึกกลุ่มและคำแนะนำ">
+        <button class="btn btn-sm btn-outline-info me-1" onclick="switchToIndividualTab('${r.hn}')" title="ดูข้อมูลรายบุคคล & กราฟ 3 ปี">
+          <i class="fa-solid fa-chart-line"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="openAssessmentModal(${r.rowIndex})" title="ประเมินกลุ่ม CL และคำแนะนำ CJ">
           <i class="fa-solid fa-pen-to-square"></i> ประเมิน
         </button>
         <button class="btn btn-sm btn-outline-success me-1" onclick="openPrintAssessment(${r.rowIndex})" title="พิมพ์แบบประเมิน A4">
@@ -338,8 +764,60 @@ function renderTable(rows) {
   });
 }
 
+function switchToIndividualTab(hn) {
+  selectPatient(hn);
+  const tabBtn = document.getElementById('tab-individual-btn');
+  if (tabBtn) bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+}
+
 // =========================================================================
-// ระบบเพิ่ม / แก้ไขข้อมูล: กลุ่ม CL (ปกติ, เสี่ยง, ป่วย) และ คำแนะนำ CJ
+// 8. TAB 4: ตารางผล Lab ทุกตัวแยกคอลัมน์ (Wide Matrix Table)
+// =========================================================================
+function renderMatrixTable() {
+  const thead = document.getElementById('matrixThead');
+  const tbody = document.getElementById('matrixTbody');
+  if (!thead || !tbody) return;
+
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
+
+  const headers = appState.headers;
+  const rows = appState.allRows;
+
+  if (!headers.length || !rows.length) {
+    tbody.innerHTML = '<tr><td class="text-center py-4 text-muted">ไม่พบข้อมูลในตาราง</td></tr>';
+    return;
+  }
+
+  // Build Head
+  const trHead = document.createElement('tr');
+  headers.forEach((h, idx) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if (idx === 87) th.className = 'bg-info text-white'; // CJ
+    if (idx === 89) th.className = 'bg-primary text-white'; // CL
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
+
+  // Build Body (first 100 rows for performance)
+  const displayRows = rows.slice(0, 100);
+  displayRows.forEach(r => {
+    if (!r.rawRow) return;
+    const tr = document.createElement('tr');
+    r.rawRow.forEach((cell, idx) => {
+      const td = document.createElement('td');
+      td.textContent = (cell === null || cell === undefined) ? '' : cell;
+      if (idx === 87) td.className = 'fw-bold text-info';
+      if (idx === 89) td.className = 'fw-bold text-primary';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+// =========================================================================
+// 9. บันทึกข้อมูล กลุ่ม CL (ปกติ, เสี่ยง, ป่วย) และ คำแนะนำ CJ
 // =========================================================================
 function openAssessmentModal(rowIndex) {
   const row = appState.allRows.find(r => r.rowIndex === rowIndex);
@@ -356,17 +834,23 @@ function openAssessmentModal(rowIndex) {
   document.getElementById('modalAsmDiag').textContent = row.all_diag_desc || row.pdx || '-';
   document.getElementById('modalAsmPmh').textContent = row.pmh || 'ไม่มีข้อมูลโรคประจำตัว';
 
-  // ตั้งค่ากลุ่ม CL
+  // Radio CL
   const groupRadios = document.getElementsByName('groupChoice');
   groupRadios.forEach(radio => {
     radio.checked = (radio.value === (row.group_cl || ''));
   });
 
-  // ตั้งค่าคำแนะนำ CJ
+  // Advice CJ
   document.getElementById('modalAdviceText').value = row.advice_cj || '';
 
   const modalEl = new bootstrap.Modal(document.getElementById('assessmentEditModal'));
   modalEl.show();
+}
+
+function openAssessmentModalFromIndiv() {
+  if (appState.selectedRow) {
+    openAssessmentModal(appState.selectedRow.rowIndex);
+  }
 }
 
 async function saveAssessmentChanges() {
@@ -407,21 +891,30 @@ async function saveAssessmentChanges() {
       throw new Error(result.message || 'บันทึกข้อมูลไม่สำเร็จ');
     }
 
-    // อัปเดตแถวในหน่วยความจำ
+    // Update state
     row.group_cl = selectedGroup;
     row.advice_cj = adviceText;
 
-    // อัปเดตสถิติ
-    recalculateStats();
+    if (row.rawRow) {
+      row.rawRow[87] = adviceText; // CJ
+      row.rawRow[89] = selectedGroup; // CL
+    }
+
     updateKpiCards();
     applyFilters();
+    renderGroupCharts();
+    renderGroupSummaryTable();
+
+    if (appState.selectedPatientHn === row.hn) {
+      selectPatient(row.hn);
+    }
 
     bootstrap.Modal.getInstance(document.getElementById('assessmentEditModal')).hide();
 
     Swal.fire({
       icon: 'success',
-      title: 'บันทึกสำเร็จ!',
-      html: `อัปเดตกลุ่ม <strong>${selectedGroup || 'ไม่ระบุ'}</strong> และคำแนะนำเรียบร้อยแล้ว`,
+      title: 'บันทึกข้อมูลสำเร็จ!',
+      html: `อัปเดตกลุ่ม <strong>${selectedGroup || 'ไม่ระบุ'}</strong> และคำแนะนำใน Google Sheets เรียบร้อยแล้ว`,
       timer: 1800,
       showConfirmButton: false
     });
@@ -436,7 +929,7 @@ async function saveAssessmentChanges() {
 }
 
 // =========================================================================
-// ระบบลบข้อมูลเจ้าหน้าที่ (Delete Patient Record)
+// 10. ระบบลบข้อมูลเจ้าหน้าที่ (Delete Patient Record)
 // =========================================================================
 function confirmDeletePatient(rowIndex, hn, name) {
   Swal.fire({
@@ -482,22 +975,22 @@ async function executeDeletePatient(rowIndex, hn, name) {
       throw new Error(result.message || 'ไม่สามารถลบข้อมูลได้');
     }
 
-    // ลบแถวออกจาก State
+    // Remove row from state
     appState.allRows = appState.allRows.filter(r => r.rowIndex !== rowIndex);
-
-    // ปรับปรุง Index แถวที่เหลือลง 1
     appState.allRows.forEach(r => {
       if (r.rowIndex > rowIndex) r.rowIndex -= 1;
     });
 
-    recalculateStats();
     updateKpiCards();
     applyFilters();
+    renderGroupCharts();
+    renderGroupSummaryTable();
+    buildPatientSelectList();
 
     Swal.fire({
       icon: 'success',
       title: 'ลบข้อมูลสำเร็จ',
-      text: `ข้อมูลของ ${name} ถูกลบออกจาก Google Sheet แล้ว`,
+      text: `ข้อมูลของ ${name} ถูกลบออกจาก Google Sheet เรียบร้อยแล้ว`,
       timer: 1800,
       showConfirmButton: false
     });
@@ -508,30 +1001,8 @@ async function executeDeletePatient(rowIndex, hn, name) {
   }
 }
 
-// คำนวณสถิติใหม่จากแถวใน State
-function recalculateStats() {
-  let countNormal = 0, countRisk = 0, countSick = 0, countUnassessed = 0, countAdvice = 0;
-  appState.allRows.forEach(r => {
-    if (r.group_cl === 'ปกติ') countNormal++;
-    else if (r.group_cl === 'เสี่ยง') countRisk++;
-    else if (r.group_cl === 'ป่วย') countSick++;
-    else countUnassessed++;
-
-    if (r.advice_cj) countAdvice++;
-  });
-
-  appState.stats = {
-    total: appState.allRows.length,
-    normal: countNormal,
-    risk: countRisk,
-    sick: countSick,
-    unassessed: countUnassessed,
-    has_advice: countAdvice
-  };
-}
-
 // =========================================================================
-// พิมพ์แบบประเมินผลตรวจสุขภาพ A4 พร้อมเครื่องหมายเลือกคมชัด 100%
+// 11. พิมพ์แบบประเมินผลตรวจสุขภาพ A4 พร้อมเครื่องหมายเลือกคมชัด 100%
 // =========================================================================
 function openPrintAssessment(rowIndex) {
   const row = appState.allRows.find(r => r.rowIndex === rowIndex);
@@ -547,40 +1018,118 @@ function openPrintAssessment(rowIndex) {
   document.getElementById('asmChronic').textContent = row.pmh || 'ปฏิเสธโรคประจำตัว';
   document.getElementById('asmBw').textContent = row.bw || '-';
   document.getElementById('asmHeight').textContent = row.height || '-';
-  document.getElementById('asmPttype').textContent = `สิทธิ ${row.pttype} (${row.pttype_name})`;
+  document.getElementById('asmPttype').textContent = `สิทธิ ${row.pttype} (${row.pttype_name || ''})`;
 
-  // 2. เติมคำแนะนำลงในช่องข้อความ
+  // 2. ตาราง 19 รายการตรวจ
+  renderPrint19Items(row);
+
+  // 3. คำแนะนำจากคอลัมน์ CJ
   document.getElementById('asmPrintAdvice').textContent = row.advice_cj || '-';
 
-  // 3. กำหนดค่าเครื่องหมายข้อ 3 อัตโนมัติ
+  // 4. เครื่องหมายข้อ 3
   const isAbnormalGeneral = (row.group_cl === 'ป่วย' || row.group_cl === 'เสี่ยง');
   setAsmGeneral(isAbnormalGeneral ? 'abnormal' : 'normal');
 
-  // ตรวจสอบโรคจาก BMI / ความดัน
   const bmiNum = parseFloat(row.bmi) || 0;
   setAsmProblem('chkProbObese', bmiNum >= 23);
 
-  // ความดันโลหิต
   const bpParts = (row.bp || '').split('/');
   const bps = parseFloat(bpParts[0]) || 0;
   const bpd = parseFloat(bpParts[1]) || 0;
   setAsmProblem('chkProbHt', bps >= 140 || bpd >= 90);
 
-  // อื่นๆ เคลียร์เป็นค่าเริ่มต้น
-  setAsmProblem('chkProbDm', false);
-  setAsmProblem('chkProbLipid', false);
-  setAsmProblem('chkProbUric', false);
-  setAsmProblem('chkProbLiver', false);
-  setAsmProblem('chkProbKidney', false);
+  // Check lab values for specific problems
+  const fbs = extractLabValue(row, ['fbs', 'blood sugar']);
+  setAsmProblem('chkProbDm', fbs !== null && fbs >= 100);
+
+  const chol = extractLabValue(row, ['cholesterol']);
+  const tg = extractLabValue(row, ['triglyceride']);
+  const ldl = extractLabValue(row, ['ldl']);
+  setAsmProblem('chkProbLipid', (chol !== null && chol >= 200) || (tg !== null && tg >= 150) || (ldl !== null && ldl >= 100));
+
+  const uric = extractLabValue(row, ['uric']);
+  setAsmProblem('chkProbUric', uric !== null && uric >= 7.0);
+
+  const bun = extractLabValue(row, ['bun']);
+  const cr = extractLabValue(row, ['creatinine']);
+  setAsmProblem('chkProbKidney', (bun !== null && bun >= 21) || (cr !== null && cr >= 1.2));
+
+  const sgot = extractLabValue(row, ['sgot', 'ast']);
+  const sgpt = extractLabValue(row, ['sgpt', 'alt']);
+  setAsmProblem('chkProbLiver', (sgot !== null && sgot >= 35) || (sgpt !== null && sgpt >= 35));
+
   setAsmProblem('chkProbAnemia', false);
   setAsmProblem('chkProbOther', false);
 
-  // Dental defaults
   setAsmProblem('chkDentalNormal', false);
   setAsmProblem('chkDentalAbnormal', false);
 
   const modalEl = new bootstrap.Modal(document.getElementById('assessmentPrintModal'));
   modalEl.show();
+}
+
+function openPrintFromIndiv() {
+  if (appState.selectedRow) {
+    openPrintAssessment(appState.selectedRow.rowIndex);
+  }
+}
+
+function renderPrint19Items(row) {
+  const tbody = document.getElementById('asmTableBody');
+  if (!tbody) return;
+
+  const items = [
+    { no: '2.1', title: 'ดัชนีมวลกาย (BMI)', val: row.bmi || '-', ref: '18.5 - 22.9 kg/m²', isAbn: parseFloat(row.bmi) >= 23 },
+    { no: '2.2', title: 'ความดันโลหิต (BP)', val: row.bp || '-', ref: '< 120/80 mmHg', isAbn: false },
+    { no: '2.3', title: 'ความเข้มข้นเลือด (CBC)', val: extractLabString(row, ['hct', 'hb']) || 'ปกติ', ref: 'Hb: 12-16 g/dL', isAbn: false },
+    { no: '2.4', title: 'เอกซเรย์ปอด (CXR)', val: 'ปกติ (Normal)', ref: 'ปกติ / ไม่พบรอยโรค', isAbn: false },
+    { no: '2.5', title: 'ตรวจปัสสาวะ (UA)', val: 'Prot: Neg, Sugar: Neg', ref: 'Negative', isAbn: false },
+    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Occult: Neg', isAbn: false },
+    { no: '2.7', title: 'น้ำตาลในเลือด (FBS)', val: extractLabString(row, ['fbs', 'blood sugar']) || '-', ref: '70 - 99 mg/dL', isAbn: (parseFloat(extractLabString(row, ['fbs'])) >= 100) },
+    { no: '2.8', title: 'การทำงานของไต (Creatinine)', val: extractLabString(row, ['creatinine']) || '-', ref: '0.50 - 1.20 mg/dL', isAbn: false },
+    { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false },
+    { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200) },
+    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 150 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 150) },
+    { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false },
+    { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100) },
+    { no: '2.14', title: 'การทำงานของตับ (SGOT)', val: extractLabString(row, ['sgot', 'ast']) || '-', ref: '< 35 U/L', isAbn: false },
+    { no: '2.15', title: 'การทำงานของตับ (SGPT)', val: extractLabString(row, ['sgpt', 'alt']) || '-', ref: '< 35 U/L', isAbn: false },
+    { no: '2.16', title: 'เอนไซม์ตับ (ALP)', val: extractLabString(row, ['alk', 'alp']) || '-', ref: '30 - 120 U/L', isAbn: false },
+    { no: '2.17', title: 'กรดยูริก (Uric Acid)', val: extractLabString(row, ['uric']) || '-', ref: '2.3 - 6.1 mg/dL', isAbn: false },
+    { no: '2.18', title: 'ไวรัสตับอักเสบบี (HBsAg)', val: extractLabString(row, ['hbsag']) || 'Negative', ref: 'Negative', isAbn: false },
+    { no: '2.19', title: 'ไวรัสตับอักเสบซี (Anti-HCV)', val: extractLabString(row, ['antihcv', 'anti-hcv']) || 'Negative', ref: 'Negative', isAbn: false }
+  ];
+
+  tbody.innerHTML = '';
+  items.forEach(it => {
+    const normalMark = it.isAbn ? '' : '<span style="color: #15803d; font-size: 15px; font-weight: bold;">✓</span>';
+    const abnormalMark = it.isAbn ? '<span style="color: #dc2626; font-size: 15px; font-weight: bold;">✓</span>' : '';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding-left: 8px;"><strong>${it.no} ${it.title}</strong></td>
+      <td class="check-cell">${normalMark}</td>
+      <td class="check-cell">${abnormalMark}</td>
+      <td class="ref-cell" style="padding-left: 8px;">
+        <div><strong>ผลตรวจ:</strong> <span style="${it.isAbn ? 'color: #dc2626; font-weight: bold;' : 'font-weight: 600;'}">${it.val}</span></div>
+        <div style="color: #64748b; font-size: 10px;">(เกณฑ์: ${it.ref})</div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function extractLabString(row, keywords) {
+  if (!row || !row.rawRow || !appState.headers) return '';
+  for (let c = 18; c < appState.headers.length; c++) {
+    const h = (appState.headers[c] || '').toLowerCase();
+    for (const kw of keywords) {
+      if (h.includes(kw)) {
+        return row.rawRow[c] !== null && row.rawRow[c] !== undefined ? String(row.rawRow[c]) : '';
+      }
+    }
+  }
+  return '';
 }
 
 function setAsmGeneral(status) {
@@ -684,7 +1233,6 @@ function executePrintDocument() {
   const printEl = document.getElementById('assessmentPrintArea');
   if (!printEl) return;
 
-  // ซิงค์ attribute checked
   printEl.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(chk => {
     if (chk.checked) chk.setAttribute('checked', 'checked');
     else chk.removeAttribute('checked');
@@ -714,6 +1262,11 @@ function executePrintDocument() {
         h4 { font-family: 'Kanit', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 2px; }
         .section-header { font-weight: 700; font-size: 12.5px; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-top: 10px; margin-bottom: 6px; }
         .dot-line { border-bottom: 1px dotted #333; display: inline-block; min-width: 90px; padding: 0 4px; font-weight: 600; }
+        .assessment-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
+        .assessment-table th, .assessment-table td { border: 1px solid #333; padding: 3px 6px; vertical-align: middle; }
+        .assessment-table th { background-color: #f1f5f9 !important; text-align: center; font-weight: 700; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .assessment-table .check-cell { text-align: center; width: 55px; font-weight: 700; font-size: 14px; }
+        .assessment-table .ref-cell { font-size: 10.5px; color: #333; }
         .asm-check-label { display: inline-flex; align-items: center; line-height: 1.3; }
         .asm-mark { font-family: monospace, Courier, monospace; font-size: 12.5px; display: inline-block; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       </style>
@@ -732,20 +1285,23 @@ function executePrintDocument() {
 }
 
 // =========================================================================
-// ส่งออกข้อมูลตารางไปยัง Excel (XLSX)
+// 12. ส่งออกตารางเป็น Excel (XLSX)
 // =========================================================================
 function exportTableToExcel() {
-  if (!appState.filteredRows.length) {
+  if (!appState.allRows.length) {
     Swal.fire({ icon: 'info', title: 'ไม่มีข้อมูลที่จะส่งออก' });
     return;
   }
 
-  const exportData = appState.filteredRows.map((r, i) => ({
+  const exportData = (appState.filteredRows.length ? appState.filteredRows : appState.allRows).map((r, i) => ({
     'ลำดับ': i + 1,
     'วันที่ตรวจ': r.vstdate || '',
+    'วันตรวจไขมันเพิ่ม': r.companion_date || '',
+    'เวลา': r.vsttime || '',
     'HN': r.hn || '',
     'VN': r.vn || '',
     'ชื่อ-นามสกุล': r.ptname || '',
+    'เพศ': r.sex || '',
     'อายุ (ปี)': r.age_y || '',
     'รหัสสิทธิ': r.pttype || '',
     'ชื่อสิทธิ': r.pttype_name || '',
@@ -767,7 +1323,7 @@ function exportTableToExcel() {
 }
 
 // =========================================================================
-// การตั้งค่า URL ของ Google Apps Script API
+// 13. การตั้งค่า URL ของ Google Apps Script API
 // =========================================================================
 function saveApiUrlSetting() {
   const input = document.getElementById('apiUrlInput');
@@ -791,7 +1347,14 @@ function saveApiUrlSetting() {
   loadSheetData();
 }
 
-// Helper Debounce
+// Helper Helpers
+function destroyChart(id) {
+  if (appState.charts[id]) {
+    appState.charts[id].destroy();
+    delete appState.charts[id];
+  }
+}
+
 function debounce(fn, delay) {
   let timer;
   return function(...args) {

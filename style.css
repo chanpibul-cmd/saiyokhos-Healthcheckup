@@ -1,6 +1,7 @@
 /**
  * =========================================================================
- * style.css - สไตล์ชีตระบบตรวจสุขภาพเจ้าหน้าที่ รพ.ไทรโยค (GitHub Pages)
+ * style.css - สไตล์ชีตระบบตรวจสุขภาพเจ้าหน้าที่ โรงพยาบาลไทรโยค (GitHub Pages)
+ * ดีไซน์เหมือน Healthcheckup.php 100% พร้อมส่วนเพิ่มเติม
  * =========================================================================
  */
 
@@ -11,9 +12,11 @@
   --accent-purple: #7c3aed;
   --bg-main: #f8fafc;
   --card-bg: #ffffff;
-  --border-color: #e2e8f0;
+  --card-border: #e2e8f0;
   --text-main: #1e293b;
   --text-muted: #64748b;
+  --bs-primary: #0f766e;
+  --bs-primary-rgb: 15, 118, 110;
 }
 
 body {
@@ -30,17 +33,17 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   font-weight: 600;
 }
 
-/* Navbar Custom */
+/* Navbar Custom (Teal to Blue Gradient) */
 .navbar-custom {
   background: linear-gradient(135deg, #0f766e 0%, #0369a1 100%);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
 .brand-icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,9 +51,24 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   color: #ffffff;
 }
 
+/* Filter Panel */
+.filter-panel {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  padding: 20px;
+}
+
+.btn-preset {
+  font-size: 0.82rem;
+  padding: 4px 11px;
+  border-radius: 20px;
+}
+
 /* Stat Cards */
 .stat-card {
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--card-border);
   border-radius: 14px;
   background: var(--card-bg);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -60,7 +78,7 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 
 .stat-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
 }
 
 .stat-card .icon-box {
@@ -71,6 +89,103 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
+}
+
+/* Nav Tabs Custom */
+.nav-tabs-custom {
+  border-bottom: 2px solid #e2e8f0;
+  gap: 8px;
+}
+
+.nav-tabs-custom .nav-link {
+  border: none;
+  border-radius: 10px 10px 0 0;
+  color: #64748b;
+  font-weight: 500;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs-custom .nav-link:hover {
+  color: var(--primary-teal);
+  background-color: #f1f5f9;
+}
+
+.nav-tabs-custom .nav-link.active {
+  color: #0369a1;
+  background: #ffffff;
+  border-bottom: 3px solid #0284c7;
+  font-weight: 600;
+}
+
+.data-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  padding: 24px;
+}
+
+/* Tables */
+.table-custom th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.table-custom td {
+  vertical-align: middle;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f0fdfa !important;
+}
+
+.table-responsive-custom {
+  max-height: 600px;
+  overflow: auto;
+}
+
+.sticky-top-th th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Badges */
+.badge-pttype-80 {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 500;
+}
+
+.badge-pttype-81 {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-weight: 500;
+}
+
+.badge-abnormal {
+  background-color: #fee2e2;
+  color: #dc2626;
+  font-weight: 600;
+  border: 1px solid #fca5a5;
+}
+
+.badge-normal {
+  background-color: #dcfce7;
+  color: #15803d;
+  font-weight: 500;
+  border: 1px solid #86efac;
 }
 
 /* Group Badges (CL: ปกติ / เสี่ยง / ป่วย) */
@@ -109,40 +224,34 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   border-color: #cbd5e1;
 }
 
-/* Data Table */
-.table-custom {
-  margin-bottom: 0;
-  font-size: 0.88rem;
-}
-
-.table-custom th {
-  background-color: #f8fafc;
-  color: #334155;
-  font-weight: 600;
-  border-bottom: 2px solid #e2e8f0;
-  vertical-align: middle;
-  padding: 10px 12px;
-  white-space: nowrap;
-}
-
-.table-custom td {
-  vertical-align: middle;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.table-custom tbody tr:hover {
-  background-color: #f8fafc;
-}
-
-/* Advice Display */
 .advice-cell {
-  max-width: 220px;
+  max-width: 240px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.83rem;
-  color: #475569;
+  color: #334155;
+}
+
+/* Patient Card (Individual View) */
+.patient-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%);
+  border-radius: 16px;
+  border: 1px solid #bae6fd;
+  padding: 22px;
+}
+
+.patient-avatar {
+  width: 56px;
+  height: 56px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: var(--primary-teal);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 /* Login Screen */
@@ -270,7 +379,48 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   print-color-adjust: exact;
 }
 
-/* Print Media Query */
+/* Patient select list on Tab 2 */
+.patient-select-list {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.patient-select-item {
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.patient-select-item:hover {
+  background-color: #f1f5f9;
+}
+
+.patient-select-item.active {
+  background-color: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 @media print {
   body {
     background: #ffffff !important;
