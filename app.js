@@ -17,6 +17,7 @@ const appState = {
   headers: [],
   selectedPatientHn: null,
   selectedRow: null,
+  activeHistoryMetric: 'all',
   charts: {},
   stats: { total: 0, normal: 0, risk: 0, sick: 0, unassessed: 0, has_advice: 0 },
   masterState: {
@@ -45,7 +46,7 @@ const STANDARD_LAB_REFS = [
   { key: 'mchc', name: 'MCHC', normal: '31.0-35.0', unit: 'g/dl', check: (v) => v >= 31.0 && v <= 35.0 },
   { key: 'rdw', name: 'RDW-CV', normal: '11.0-16.0', unit: '%', check: (v) => v >= 11.0 && v <= 16.0 },
   { key: 'plt count', name: 'PLT Count', normal: '150-450', unit: '10^3cells/uL', check: (v) => v >= 150 && v <= 450 },
-  { key: 'plt smear', name: 'PLT Smear', normal: 'Adequate', unit: '', check: (s) => /adequate|ปกติ/i.test(s) },
+  { key: 'plt smear', name: 'PLT Smear', normal: 'Adequate', unit: '', check: (v, s) => /adequate|ปกติ/i.test(s) },
   { key: 'neutrophil', name: 'Neutrophil', normal: '40.0-75.0', unit: '%', check: (v) => v >= 40.0 && v <= 75.0 },
   { key: 'lymphocyte', name: 'Lymphocyte', normal: '20.0-50.0', unit: '%', check: (v) => v >= 20.0 && v <= 50.0 },
   { key: 'monocyte', name: 'Monocyte', normal: '2.0-10.0', unit: '%', check: (v) => v >= 2.0 && v <= 10.0 },
@@ -56,35 +57,35 @@ const STANDARD_LAB_REFS = [
   { key: 'atypical', name: 'Atypical Lymphocyte', normal: '0', unit: '%', check: (v) => v === 0 },
 
   // UA
-  { key: 'color (ua)', name: 'Color (UA)', normal: 'Yellow', unit: '', check: (s) => /yellow|เหลือง/i.test(s) },
-  { key: 'appearance (ua)', name: 'Appearance (UA)', normal: 'Clear', unit: '', check: (s) => /clear|ใส/i.test(s) },
+  { key: 'color (ua)', name: 'Color (UA)', normal: 'Yellow', unit: '', check: (v, s) => /yellow|เหลือง|straw/i.test(s) },
+  { key: 'appearance (ua)', name: 'Appearance (UA)', normal: 'Clear', unit: '', check: (v, s) => /clear|ใส/i.test(s) },
   { key: 'sp. gr', name: 'Sp. gr', normal: '1.005-1.030', unit: '', check: (v) => v >= 1.005 && v <= 1.030 },
   { key: 'ph', name: 'pH', normal: '5.0-8.0', unit: '', check: (v) => v >= 5.0 && v <= 8.0 },
-  { key: 'protein (ua)', name: 'Protein (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
-  { key: 'glucose (ua)', name: 'Glucose (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
-  { key: 'ketones', name: 'Ketones (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
-  { key: 'bilirubin (ua)', name: 'Bilirubin (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
-  { key: 'urobilinogen', name: 'Urobilinogen (UA)', normal: 'Normal', unit: '', check: (s) => /normal|neg|ปกติ/i.test(s) },
-  { key: 'nitrite', name: 'Nitrite (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
-  { key: 'blood (ua)', name: 'Blood (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
-  { key: 'leucocytes (ua)', name: 'Leucocytes (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'protein (ua)', name: 'Protein (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
+  { key: 'glucose (ua)', name: 'Glucose (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
+  { key: 'ketones', name: 'Ketones (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
+  { key: 'bilirubin (ua)', name: 'Bilirubin (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
+  { key: 'urobilinogen', name: 'Urobilinogen (UA)', normal: 'Normal', unit: '', check: (v, s) => /normal|neg|ปกติ|^-$/i.test(s) },
+  { key: 'nitrite', name: 'Nitrite (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
+  { key: 'blood (ua)', name: 'Blood (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
+  { key: 'leucocytes (ua)', name: 'Leucocytes (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
   { key: 'rbc (ua)', name: 'RBC (UA)', normal: '0-1', unit: 'Cells/HPF', check: (v, s) => s === '0-1' || s === '0' || s === '1' || (v !== null && v <= 1) },
   { key: 'wbc (ua)', name: 'WBC (UA)', normal: '0-2', unit: 'Cells/HPF', check: (v, s) => s === '0-2' || s === '0-1' || s === '0' || s === '1' || s === '2' || (v !== null && v <= 2) },
   { key: 'epi. sq', name: 'Epi. Sq (UA)', normal: '0-2', unit: 'Cells/HF', check: (v, s) => s === '0-2' || s === '0-1' || s === '0' || s === '1' || s === '2' || (v !== null && v <= 2) },
-  { key: 'bacteria', name: 'Bacteria (UA)', normal: 'Negative', unit: '', check: (s) => /neg|few|rare|none|ปกติ/i.test(s) },
-  { key: 'mucous', name: 'Mucous (UA)', normal: 'Negative', unit: '', check: (s) => /neg|few|rare|none|ปกติ/i.test(s) },
-  { key: 'crystal', name: 'Crystal (UA)', normal: 'Negative', unit: '', check: (s) => /neg|none|not found|ปกติ/i.test(s) },
-  { key: 'cast', name: 'Cast (UA)', normal: 'Negative', unit: '', check: (s) => /neg|none|not found|ปกติ/i.test(s) },
+  { key: 'bacteria', name: 'Bacteria (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|few|rare|none|ปกติ|ไม่พบ/i.test(s) },
+  { key: 'mucous', name: 'Mucous (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|few|rare|none|ปกติ|ไม่พบ/i.test(s) },
+  { key: 'crystal', name: 'Crystal (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|none|not found|ปกติ|ไม่พบ/i.test(s) },
+  { key: 'cast', name: 'Cast (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|none|not found|ปกติ|ไม่พบ/i.test(s) },
 
   // Stool
-  { key: 'occult blood', name: 'Occult blood (Stool)', normal: 'Negative', unit: '', check: (s) => /neg|not found|ปกติ/i.test(s) },
-  { key: 'color (stool)', name: 'Color (Stool)', normal: 'Brown/Yellow', unit: '', check: (s) => /brown|yellow|น้ำตาล|เหลือง/i.test(s) },
-  { key: 'consistency', name: 'Consistency (Stool)', normal: 'Formed/Soft', unit: '', check: (s) => /formed|soft|ปกติ/i.test(s) },
+  { key: 'occult blood', name: 'Occult blood (Stool)', normal: 'Negative', unit: '', check: (v, s) => /neg|not found|ปกติ|ไม่พบ/i.test(s) },
+  { key: 'color (stool)', name: 'Color (Stool)', normal: 'Brown/Yellow', unit: '', check: (v, s) => /brown|yellow|น้ำตาล|เหลือง/i.test(s) },
+  { key: 'consistency', name: 'Consistency (Stool)', normal: 'Formed/Soft', unit: '', check: (v, s) => /formed|soft|ปกติ/i.test(s) },
   { key: 'rbc (stool)', name: 'RBC (Stool)', normal: '0-1', unit: 'Cells/HPF', check: (v, s) => s === '0-1' || (v !== null && v <= 1) },
   { key: 'wbc (stool)', name: 'WBC (Stool)', normal: '0-1', unit: 'Cells/HPF', check: (v, s) => s === '0-1' || (v !== null && v <= 1) },
-  { key: 'ova', name: 'Ova (Stool)', normal: 'Not found', unit: '', check: (s) => /not found|neg|none|ไม่พบ/i.test(s) },
-  { key: 'parasite', name: 'Parasite (Wet smear)', normal: 'Not found', unit: '', check: (s) => /not found|neg|none|ไม่พบ/i.test(s) },
-  { key: 'amoeba', name: 'Amoeba (Stool)', normal: 'Not found', unit: '', check: (s) => /not found|neg|none|ไม่พบ/i.test(s) },
+  { key: 'ova', name: 'Ova (Stool)', normal: 'Not found', unit: '', check: (v, s) => /not found|neg|none|ไม่พบ/i.test(s) },
+  { key: 'parasite', name: 'Parasite (Wet smear)', normal: 'Not found', unit: '', check: (v, s) => /not found|neg|none|ไม่พบ/i.test(s) },
+  { key: 'amoeba', name: 'Amoeba (Stool)', normal: 'Not found', unit: '', check: (v, s) => /not found|neg|none|ไม่พบ/i.test(s) },
 
   // Chemistry
   { key: 'blood sugar (fbs)', name: 'Blood Sugar (FBS)', normal: '< 100', unit: 'mg/dL', check: (v) => v < 100 },
@@ -96,7 +97,7 @@ const STANDARD_LAB_REFS = [
   { key: 'gfr', name: 'GFR', normal: '> 90', unit: 'mL/min', check: (v) => v >= 60 },
   { key: 'uric acid', name: 'Uric acid', normal: 'M 3.6-8.2 / F 2.3-6.1', unit: 'mg/dL', check: (v) => v >= 2.3 && v <= 8.2 },
   { key: 'cholesterol', name: 'Cholesterol', normal: '< 200', unit: 'mg/dL', check: (v) => v < 200 },
-  { key: 'triglyceride', name: 'Triglyceride', normal: '< 150', unit: 'mg/dL', check: (v) => v < 150 },
+  { key: 'triglyceride', name: 'Triglyceride', normal: '< 203', unit: 'mg/dL', check: (v) => v < 203 },
   { key: 'hdl', name: 'HDL', normal: '> 40', unit: 'mg/dL', check: (v) => v >= 40 },
   { key: 'ldl', name: 'LDL-Direct', normal: '< 100', unit: 'mg/dL', check: (v) => v < 100 },
   { key: 'sgot', name: 'SGOT (AST)', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
@@ -111,12 +112,12 @@ const STANDARD_LAB_REFS = [
   { key: 'direct bilirubin', name: 'Direct Bilirubin', normal: '0.10-0.30', unit: 'mg/dL', check: (v) => v >= 0.10 && v <= 0.30 },
 
   // Immunology & CXR
-  { key: 'hbsag', name: 'HBsAg', normal: 'Negative', unit: '', check: (s) => /neg|negative|ลบ/i.test(s) },
+  { key: 'hbsag', name: 'HBsAg', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) },
   { key: 'anti-hbs', name: 'Anti-HBs', normal: 'Negative/Positive', unit: '', check: () => true },
-  { key: 'anti-hcv', name: 'Anti-HCV', normal: 'Negative', unit: '', check: (s) => /neg|negative|ลบ/i.test(s) },
-  { key: 'metamphethamine', name: 'Metamphethamine', normal: 'Negative', unit: '', check: (s) => /neg|negative|ลบ/i.test(s) },
-  { key: 'cxr', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) },
-  { key: 'เอกซเรย์', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) }
+  { key: 'anti-hcv', name: 'Anti-HCV', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) },
+  { key: 'metamphethamine', name: 'Metamphethamine', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) },
+  { key: 'cxr', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (v, s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) },
+  { key: 'เอกซเรย์', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (v, s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) }
 ];
 
 function getLabReferenceInfo(headerName) {
@@ -138,13 +139,16 @@ function evaluateLabStatus(val, refInfo) {
     return { isAbnormal: false, isKnown: false };
   }
 
-  const strVal = String(val).trim();
-  const numVal = parseFloat(strVal);
-  const isNum = !isNaN(numVal);
+  // ทำความสะอาดสตริง กำจัดเครื่องหมายวรรคตอนและวรรณยุกต์แปลกปลอมที่หัวคำ เช่น ืNegative
+  let rawStr = String(val).trim();
+  const cleanStr = rawStr.replace(/^[\u0E30-\u0E4E\s]+/, '').trim();
+  const numVal = parseFloat(cleanStr);
+  const isNum = !isNaN(numVal) && isFinite(cleanStr);
 
   if (typeof refInfo.check === 'function') {
     try {
-      const isOk = refInfo.check(isNum ? numVal : null, strVal);
+      // ส่งพารามิเตอร์ทั้ง numVal และ cleanStr เพื่อให้ check ได้ทั้งแบบตัวเลขและข้อความ
+      const isOk = refInfo.check(isNum ? numVal : null, cleanStr);
       return { isAbnormal: !isOk, isKnown: true };
     } catch (e) {
       return { isAbnormal: false, isKnown: true };
@@ -433,8 +437,8 @@ async function loadSheetData() {
 // =========================================================================
 // 3. การอัปเดตสถิติ KPI Cards
 // =========================================================================
-function updateKpiCards() {
-  const rows = appState.allRows;
+function updateKpiCards(targetRows) {
+  const rows = targetRows || appState.filteredRows || appState.allRows;
   const total = rows.length;
 
   let count80 = 0, count81 = 0;
@@ -583,6 +587,11 @@ function applyFilters() {
   safeSetText('tabVisitBadge', appState.filteredRows.length.toLocaleString());
   appState.masterState.currentPage = 1;
   renderMasterTable(appState.filteredRows);
+
+  // คำนวณ KPI Cards, กราฟ และตารางภาพรวมรายกลุ่มตามวันที่และเงื่อนไขที่เลือก
+  updateKpiCards(appState.filteredRows);
+  renderGroupCharts(appState.filteredRows);
+  renderGroupSummaryTable(appState.filteredRows);
 }
 
 function resetFilters() {
@@ -622,9 +631,14 @@ function setPresetDate(type) {
 // =========================================================================
 // 5. TAB 1: กราฟภาพรวมรายกลุ่ม และ ตารางสรุปช่วงอายุ
 // =========================================================================
-function renderGroupCharts() {
-  const rows = appState.allRows;
-  if (!rows.length) return;
+function renderGroupCharts(targetRows) {
+  const rows = targetRows || appState.filteredRows || appState.allRows;
+  if (!rows.length) {
+    destroyChart('chartPttype');
+    destroyChart('chartAge');
+    destroyChart('chartGroup');
+    return;
+  }
 
   // 1. Pttype Donut
   let p80 = 0, p81 = 0, pOther = 0;
@@ -640,7 +654,7 @@ function renderGroupCharts() {
     appState.charts['chartPttype'] = new Chart(ctxPttype, {
       type: 'doughnut',
       data: {
-        labels: ['สิทธิ 80 ข้าราชการ', 'สิทธิ 81 ประกันสังคม', 'สิทธิอื่นๆ'],
+        labels: ['สิทธิ 80 (จนท.รพ.ไทรโยค)', 'สิทธิ 81 ประกันสังคม', 'สิทธิอื่นๆ'],
         datasets: [{
           data: [p80, p81, pOther],
           backgroundColor: ['#0284c7', '#f59e0b', '#94a3b8'],
@@ -720,13 +734,13 @@ function renderGroupCharts() {
   }
 }
 
-function renderGroupSummaryTable() {
+function renderGroupSummaryTable(targetRows) {
   const tbody = document.getElementById('groupSummaryTableBody');
   if (!tbody) return;
 
-  const rows = appState.allRows;
+  const rows = targetRows || appState.filteredRows || appState.allRows;
   const groups = {
-    '80': { name: 'สิทธิ 80 (ข้าราชการ รพ.ไทรโยค)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 },
+    '80': { name: 'สิทธิ 80 (80ตรวจสุขภาพประจำปี (จนท.รพ.ไทรโยค))', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 },
     '81': { name: 'สิทธิ 81 (ประกันสังคม)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 }
   };
 
@@ -869,6 +883,28 @@ function selectPatient(hn) {
   renderIndividualLabTable(row);
 }
 
+function setHistoryMetricFilter(metric) {
+  appState.activeHistoryMetric = metric || 'all';
+
+  // Update button active state
+  const group = document.getElementById('historyMetricButtonGroup');
+  if (group) {
+    const buttons = group.querySelectorAll('button');
+    buttons.forEach(btn => {
+      const onclickAttr = btn.getAttribute('onclick') || '';
+      if (onclickAttr.includes(`'${metric}'`)) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  if (appState.selectedPatientHn) {
+    renderPatientHistoryCharts(appState.selectedPatientHn);
+  }
+}
+
 function renderPatientHistoryCharts(hn) {
   // Find all rows for this HN across years
   const patientVisits = appState.allRows.filter(r => r.hn === hn);
@@ -880,21 +916,89 @@ function renderPatientHistoryCharts(hn) {
     return d ? (parseInt(d.slice(0, 4), 10) + 543) : 'ตรวจ';
   });
 
-  // Extract values
+  // Extract values for Lipids & Sugar
   const fbsVals = patientVisits.map(v => extractLabValue(v, ['fbs', 'blood sugar']));
   const cholVals = patientVisits.map(v => extractLabValue(v, ['cholesterol']));
   const tgVals = patientVisits.map(v => extractLabValue(v, ['triglyceride']));
   const ldlVals = patientVisits.map(v => extractLabValue(v, ['ldl']));
   const hdlVals = patientVisits.map(v => extractLabValue(v, ['hdl']));
 
+  // Kidney & Liver & Uric
   const egfrVals = patientVisits.map(v => extractLabValue(v, ['egfr', 'gfr']));
   const bunVals = patientVisits.map(v => extractLabValue(v, ['bun']));
   const crVals = patientVisits.map(v => extractLabValue(v, ['creatinine']));
   const uricVals = patientVisits.map(v => extractLabValue(v, ['uric']));
   const sgotVals = patientVisits.map(v => extractLabValue(v, ['sgot', 'ast']));
   const sgptVals = patientVisits.map(v => extractLabValue(v, ['sgpt', 'alt']));
+  const alpVals = patientVisits.map(v => extractLabValue(v, ['alkaline', 'alp']));
 
-  // Chart 1: Lipids & Sugar
+  // CBC
+  const wbcVals = patientVisits.map(v => extractLabValue(v, ['wbc (10^3', 'wbc']));
+  const rbcVals = patientVisits.map(v => extractLabValue(v, ['rbc (10^6', 'rbc']));
+  const hbVals = patientVisits.map(v => extractLabValue(v, ['hb (g/dl)', 'hb']));
+  const hctVals = patientVisits.map(v => extractLabValue(v, ['hct (%)', 'hct']));
+  const pltVals = patientVisits.map(v => extractLabValue(v, ['plt count', 'platelet']));
+
+  const metric = appState.activeHistoryMetric || 'all';
+
+  // Determine datasets for Chart 1 and Chart 2
+  let ds1 = [];
+  let ds2 = [];
+
+  if (metric === 'all') {
+    ds1 = [
+      { label: 'FBS', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
+      { label: 'Chol', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
+      { label: 'TG', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
+      { label: 'LDL', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
+      { label: 'HDL', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
+    ];
+    ds2 = [
+      { label: 'eGFR', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
+      { label: 'BUN', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
+      { label: 'Cr', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 },
+      { label: 'Uric', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 5 },
+      { label: 'SGOT', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
+      { label: 'SGPT', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5 }
+    ];
+  } else if (metric === 'lipid') {
+    ds1 = [
+      { label: 'Cholesterol (<200)', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
+      { label: 'Triglyceride (<203)', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
+      { label: 'LDL (<100)', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
+      { label: 'HDL (>40)', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
+    ];
+  } else if (metric === 'sugar') {
+    ds1 = [
+      { label: 'FBS น้ำตาลในเลือด (<100)', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 6, fill: true, backgroundColor: 'rgba(2, 132, 199, 0.1)' }
+    ];
+  } else if (metric === 'kidney') {
+    ds1 = [
+      { label: 'eGFR (>60)', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
+      { label: 'BUN (7-21)', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
+      { label: 'Creatinine (0.5-1.3)', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 }
+    ];
+  } else if (metric === 'liver') {
+    ds1 = [
+      { label: 'SGOT / AST (<35)', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
+      { label: 'SGPT / ALT (<35)', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5 },
+      { label: 'ALP (30-120)', data: alpVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 }
+    ];
+  } else if (metric === 'cbc') {
+    ds1 = [
+      { label: 'Hb (12-17)', data: hbVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
+      { label: 'Hct (35-50%)', data: hctVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
+      { label: 'WBC (3.5-10.5)', data: wbcVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
+      { label: 'RBC (3.9-5.7)', data: rbcVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 },
+      { label: 'PLT (150-450)', data: pltVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 }
+    ];
+  } else if (metric === 'uric') {
+    ds1 = [
+      { label: 'Uric Acid (M 3.6-8.2 / F 2.3-6.1)', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 6, fill: true, backgroundColor: 'rgba(101, 163, 13, 0.1)' }
+    ];
+  }
+
+  // Chart 1
   destroyChart('chartHistoryLipid');
   const ctxLipid = document.getElementById('chartHistoryLipid');
   if (ctxLipid) {
@@ -902,13 +1006,7 @@ function renderPatientHistoryCharts(hn) {
       type: 'line',
       data: {
         labels: labels,
-        datasets: [
-          { label: 'FBS', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
-          { label: 'Chol', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
-          { label: 'TG', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
-          { label: 'LDL', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
-          { label: 'HDL', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
-        ]
+        datasets: ds1
       },
       options: {
         responsive: true,
@@ -918,29 +1016,36 @@ function renderPatientHistoryCharts(hn) {
     });
   }
 
-  // Chart 2: Liver & Kidney (includes eGFR)
+  // Chart 2
   destroyChart('chartHistoryOrgan');
   const ctxOrgan = document.getElementById('chartHistoryOrgan');
   if (ctxOrgan) {
-    appState.charts['chartHistoryOrgan'] = new Chart(ctxOrgan, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: 'eGFR', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
-          { label: 'BUN', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
-          { label: 'Cr', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 },
-          { label: 'Uric', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 5 },
-          { label: 'SGOT', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
-          { label: 'SGPT', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5 }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: { y: { beginAtZero: false } }
+    // If specific single metric is selected and ds2 is empty, we can mirror or hide
+    if (ds2.length > 0) {
+      ctxOrgan.parentElement.parentElement.style.display = '';
+      appState.charts['chartHistoryOrgan'] = new Chart(ctxOrgan, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: ds2
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: false } }
+        }
+      });
+    } else {
+      // เมื่อเลือกหมวดเฉพาะ แสดงเต็มความกว้างสวยงาม
+      ctxOrgan.parentElement.parentElement.style.display = 'none';
+      if (ctxLipid && ctxLipid.parentElement && ctxLipid.parentElement.parentElement) {
+        ctxLipid.parentElement.parentElement.className = 'col-12';
       }
-    });
+    }
+  }
+
+  if (metric === 'all' && ctxLipid && ctxLipid.parentElement && ctxLipid.parentElement.parentElement) {
+    ctxLipid.parentElement.parentElement.className = 'col-12 col-md-6';
   }
 }
 
@@ -1544,7 +1649,8 @@ function openPrintAssessment(rowIndex) {
   safeSetText('asmPtName', row.ptname || '-');
   safeSetText('asmAge', row.age_y || '-');
   safeSetText('asmDate', row.vstdate || '-');
-  safeSetText('asmChronic', row.pmh || 'ปฏิเสธโรคประจำตัว');
+  // ข้อ 1 โรคประจำตัว ไม่ต้องลงข้อมูลตามคำขอ
+  safeSetText('asmChronic', '-');
   safeSetText('asmBw', row.bw || '-');
   safeSetText('asmHeight', row.height || '-');
   safeSetText('asmPttype', `สิทธิ ${row.pttype} (${row.pttype_name || ''})`);
@@ -1574,7 +1680,7 @@ function openPrintAssessment(rowIndex) {
   const chol = extractLabValue(row, ['cholesterol']);
   const tg = extractLabValue(row, ['triglyceride']);
   const ldl = extractLabValue(row, ['ldl']);
-  setAsmProblem('chkProbLipid', (chol !== null && chol >= 200) || (tg !== null && tg >= 150) || (ldl !== null && ldl >= 100));
+  setAsmProblem('chkProbLipid', (chol !== null && chol >= 200) || (tg !== null && tg >= 203) || (ldl !== null && ldl >= 100));
 
   const uric = extractLabValue(row, ['uric']);
   setAsmProblem('chkProbUric', uric !== null && uric >= 7.0);
@@ -1621,7 +1727,7 @@ function renderPrint19Items(row) {
     { no: '2.8', title: 'การทำงานของไต (Creatinine)', val: extractLabString(row, ['creatinine']) || '-', ref: '0.50 - 1.20 mg/dL', isAbn: false },
     { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false },
     { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200) },
-    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 150 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 150) },
+    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 203 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 203) },
     { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false },
     { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100) },
     { no: '2.14', title: 'การทำงานของตับ (SGOT)', val: extractLabString(row, ['sgot', 'ast']) || '-', ref: '< 35 U/L', isAbn: false },
@@ -1817,15 +1923,35 @@ function executePrintDocument() {
 }
 
 // =========================================================================
-// 12. ส่งออกตารางเป็น Excel (XLSX)
+// 12. ส่งออกตารางเป็น Excel (XLSX) ครบทุกคอลัมน์ (Wide Matrix และข้อมูลทั่วไป)
 // =========================================================================
 function exportTableToExcel() {
-  if (!appState.allRows.length) {
+  const rows = appState.filteredRows.length ? appState.filteredRows : appState.allRows;
+  if (!rows.length) {
     Swal.fire({ icon: 'info', title: 'ไม่มีข้อมูลที่จะส่งออก' });
     return;
   }
 
-  const exportData = (appState.filteredRows.length ? appState.filteredRows : appState.allRows).map((r, i) => ({
+  const wb = XLSX.utils.book_new();
+
+  // แผ่นงานที่ 1: ตารางผล Lab ทุกตัวแยกคอลัมน์ (Full Wide Matrix ครบ 100% ทุกคอลัมน์)
+  if (appState.headers && appState.headers.length > 0) {
+    const matrixExportData = rows.map((r, rowIdx) => {
+      const rowObj = { 'ลำดับ': rowIdx + 1 };
+      appState.headers.forEach((h, colIdx) => {
+        const rawCell = r.rawRow ? r.rawRow[colIdx] : '';
+        const formattedCell = formatMatrixDisplayValue(rawCell, h, colIdx);
+        rowObj[h || `Col_${colIdx + 1}`] = formattedCell;
+      });
+      return rowObj;
+    });
+
+    const wsMatrix = XLSX.utils.json_to_sheet(matrixExportData);
+    XLSX.utils.book_append_sheet(wb, wsMatrix, 'ผลตรวจและLabครบทุกตัว');
+  }
+
+  // แผ่นงานที่ 2: ตารางสรุปภาพรวมรายบุคคล (Master Summary)
+  const masterExportData = rows.map((r, i) => ({
     'ลำดับ': i + 1,
     'วันที่ตรวจ': r.vstdate || '',
     'วันตรวจไขมันเพิ่ม': r.companion_date || '',
@@ -1846,12 +1972,11 @@ function exportTableToExcel() {
     'โรคประจำตัว': r.pmh || ''
   }));
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  XLSX.utils.book_append_sheet(wb, ws, 'ข้อมูลตรวจสุขภาพ');
+  const wsMaster = XLSX.utils.json_to_sheet(masterExportData);
+  XLSX.utils.book_append_sheet(wb, wsMaster, 'สรุปข้อมูลทั่วไป');
 
   const today = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `Saiyok_Healthcheckup_Data_${today}.xlsx`);
+  XLSX.writeFile(wb, `Saiyok_Healthcheckup_Complete_${today}.xlsx`);
 }
 
 // =========================================================================
