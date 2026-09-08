@@ -18,8 +18,198 @@ const appState = {
   selectedPatientHn: null,
   selectedRow: null,
   charts: {},
-  stats: { total: 0, normal: 0, risk: 0, sick: 0, unassessed: 0, has_advice: 0 }
+  stats: { total: 0, normal: 0, risk: 0, sick: 0, unassessed: 0, has_advice: 0 },
+  matrixState: {
+    search: '',
+    pageSize: 25,
+    currentPage: 1
+  }
 };
+
+// =========================================================================
+// ตารางค่าอ้างอิงปกติของผล Lab (Standard Reference Values)
+// =========================================================================
+const STANDARD_LAB_REFS = [
+  // CBC
+  { key: 'wbc (10^3', name: 'WBC', normal: '3.50-10.50', unit: '10^3cells/uL', check: (v) => v >= 3.5 && v <= 10.5 },
+  { key: 'rbc (10^6', name: 'RBC', normal: 'M 4.3-5.7 / F 3.9-5.3', unit: '10^6cells/uL', check: (v) => v >= 3.9 && v <= 5.7 },
+  { key: 'hb (g/dl)', name: 'Hb', normal: 'M 13.0-17.0 / F 12.0-16.0', unit: 'g/dL', check: (v) => v >= 12.0 && v <= 17.0 },
+  { key: 'hct (%)', name: 'Hct', normal: 'M 38.0-50.0 / F 35.0-47.0', unit: '%', check: (v) => v >= 35.0 && v <= 50.0 },
+  { key: 'mcv', name: 'MCV', normal: '80.0-97.0', unit: 'fL', check: (v) => v >= 80.0 && v <= 97.0 },
+  { key: 'mch (pg', name: 'MCH', normal: '27.0-33.0', unit: 'pg/cell', check: (v) => v >= 27.0 && v <= 33.0 },
+  { key: 'mchc', name: 'MCHC', normal: '31.0-35.0', unit: 'g/dl', check: (v) => v >= 31.0 && v <= 35.0 },
+  { key: 'rdw', name: 'RDW-CV', normal: '11.0-16.0', unit: '%', check: (v) => v >= 11.0 && v <= 16.0 },
+  { key: 'plt count', name: 'PLT Count', normal: '150-450', unit: '10^3cells/uL', check: (v) => v >= 150 && v <= 450 },
+  { key: 'plt smear', name: 'PLT Smear', normal: 'Adequate', unit: '', check: (s) => /adequate|ปกติ/i.test(s) },
+  { key: 'neutrophil', name: 'Neutrophil', normal: '40.0-75.0', unit: '%', check: (v) => v >= 40.0 && v <= 75.0 },
+  { key: 'lymphocyte', name: 'Lymphocyte', normal: '20.0-50.0', unit: '%', check: (v) => v >= 20.0 && v <= 50.0 },
+  { key: 'monocyte', name: 'Monocyte', normal: '2.0-10.0', unit: '%', check: (v) => v >= 2.0 && v <= 10.0 },
+  { key: 'eosinophil', name: 'Eosinophil', normal: '1.0-5.0', unit: '%', check: (v) => v >= 0.0 && v <= 5.0 },
+  { key: 'basophil', name: 'Basophil', normal: '0.0-1.0', unit: '%', check: (v) => v >= 0.0 && v <= 1.0 },
+  { key: 'band', name: 'Band', normal: '0-2', unit: '%', check: (v) => v <= 2 },
+  { key: 'blast', name: 'Blast', normal: '0', unit: '%', check: (v) => v === 0 },
+  { key: 'atypical', name: 'Atypical Lymphocyte', normal: '0', unit: '%', check: (v) => v === 0 },
+
+  // UA
+  { key: 'color (ua)', name: 'Color (UA)', normal: 'Yellow', unit: '', check: (s) => /yellow|เหลือง/i.test(s) },
+  { key: 'appearance (ua)', name: 'Appearance (UA)', normal: 'Clear', unit: '', check: (s) => /clear|ใส/i.test(s) },
+  { key: 'sp. gr', name: 'Sp. gr', normal: '1.005-1.030', unit: '', check: (v) => v >= 1.005 && v <= 1.030 },
+  { key: 'ph', name: 'pH', normal: '5.0-8.0', unit: '', check: (v) => v >= 5.0 && v <= 8.0 },
+  { key: 'protein (ua)', name: 'Protein (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'glucose (ua)', name: 'Glucose (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'ketones', name: 'Ketones (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'bilirubin (ua)', name: 'Bilirubin (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'urobilinogen', name: 'Urobilinogen (UA)', normal: 'Normal', unit: '', check: (s) => /normal|neg|ปกติ/i.test(s) },
+  { key: 'nitrite', name: 'Nitrite (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'blood (ua)', name: 'Blood (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'leucocytes (ua)', name: 'Leucocytes (UA)', normal: 'Negative', unit: '', check: (s) => /neg|normal|ปกติ/i.test(s) },
+  { key: 'rbc (ua)', name: 'RBC (UA)', normal: '0-1', unit: 'Cells/HPF', check: (v, s) => s === '0-1' || s === '0' || s === '1' || (v !== null && v <= 1) },
+  { key: 'wbc (ua)', name: 'WBC (UA)', normal: '0-2', unit: 'Cells/HPF', check: (v, s) => s === '0-2' || s === '0-1' || s === '0' || s === '1' || s === '2' || (v !== null && v <= 2) },
+  { key: 'epi. sq', name: 'Epi. Sq (UA)', normal: '0-2', unit: 'Cells/HF', check: (v, s) => s === '0-2' || s === '0-1' || s === '0' || s === '1' || s === '2' || (v !== null && v <= 2) },
+  { key: 'bacteria', name: 'Bacteria (UA)', normal: 'Negative', unit: '', check: (s) => /neg|few|rare|none|ปกติ/i.test(s) },
+  { key: 'mucous', name: 'Mucous (UA)', normal: 'Negative', unit: '', check: (s) => /neg|few|rare|none|ปกติ/i.test(s) },
+  { key: 'crystal', name: 'Crystal (UA)', normal: 'Negative', unit: '', check: (s) => /neg|none|not found|ปกติ/i.test(s) },
+  { key: 'cast', name: 'Cast (UA)', normal: 'Negative', unit: '', check: (s) => /neg|none|not found|ปกติ/i.test(s) },
+
+  // Stool
+  { key: 'occult blood', name: 'Occult blood (Stool)', normal: 'Negative', unit: '', check: (s) => /neg|not found|ปกติ/i.test(s) },
+  { key: 'color (stool)', name: 'Color (Stool)', normal: 'Brown/Yellow', unit: '', check: (s) => /brown|yellow|น้ำตาล|เหลือง/i.test(s) },
+  { key: 'consistency', name: 'Consistency (Stool)', normal: 'Formed/Soft', unit: '', check: (s) => /formed|soft|ปกติ/i.test(s) },
+  { key: 'rbc (stool)', name: 'RBC (Stool)', normal: '0-1', unit: 'Cells/HPF', check: (v, s) => s === '0-1' || (v !== null && v <= 1) },
+  { key: 'wbc (stool)', name: 'WBC (Stool)', normal: '0-1', unit: 'Cells/HPF', check: (v, s) => s === '0-1' || (v !== null && v <= 1) },
+  { key: 'ova', name: 'Ova (Stool)', normal: 'Not found', unit: '', check: (s) => /not found|neg|none|ไม่พบ/i.test(s) },
+  { key: 'parasite', name: 'Parasite (Wet smear)', normal: 'Not found', unit: '', check: (s) => /not found|neg|none|ไม่พบ/i.test(s) },
+  { key: 'amoeba', name: 'Amoeba (Stool)', normal: 'Not found', unit: '', check: (s) => /not found|neg|none|ไม่พบ/i.test(s) },
+
+  // Chemistry
+  { key: 'blood sugar (fbs)', name: 'Blood Sugar (FBS)', normal: '< 100', unit: 'mg/dL', check: (v) => v < 100 },
+  { key: 'fbs', name: 'FBS', normal: '< 100', unit: 'mg/dL', check: (v) => v < 100 },
+  { key: 'hba1c', name: 'HbA1C', normal: '4.6-6.2', unit: '%', check: (v) => v >= 4.6 && v <= 6.2 },
+  { key: 'bun', name: 'BUN', normal: '7-21', unit: 'mg/dL', check: (v) => v >= 7 && v <= 21 },
+  { key: 'creatinine', name: 'Creatinine', normal: 'M 0.8-1.3 / F 0.5-1.1', unit: 'mg/dL', check: (v) => v >= 0.5 && v <= 1.3 },
+  { key: 'egfr', name: 'eGFR', normal: '> 90', unit: 'mL/min', check: (v) => v >= 60 },
+  { key: 'gfr', name: 'GFR', normal: '> 90', unit: 'mL/min', check: (v) => v >= 60 },
+  { key: 'uric acid', name: 'Uric acid', normal: 'M 3.6-8.2 / F 2.3-6.1', unit: 'mg/dL', check: (v) => v >= 2.3 && v <= 8.2 },
+  { key: 'cholesterol', name: 'Cholesterol', normal: '< 200', unit: 'mg/dL', check: (v) => v < 200 },
+  { key: 'triglyceride', name: 'Triglyceride', normal: '< 150', unit: 'mg/dL', check: (v) => v < 150 },
+  { key: 'hdl', name: 'HDL', normal: '> 40', unit: 'mg/dL', check: (v) => v >= 40 },
+  { key: 'ldl', name: 'LDL-Direct', normal: '< 100', unit: 'mg/dL', check: (v) => v < 100 },
+  { key: 'sgot', name: 'SGOT (AST)', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
+  { key: 'ast', name: 'AST', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
+  { key: 'sgpt', name: 'SGPT (ALT)', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
+  { key: 'alt', name: 'ALT', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
+  { key: 'alkaline', name: 'Alkaline phosphatase', normal: '30-120', unit: 'U/L', check: (v) => v >= 30 && v <= 120 },
+  { key: 'total protein', name: 'Total Protein', normal: '6.6-8.3', unit: 'g/dL', check: (v) => v >= 6.6 && v <= 8.3 },
+  { key: 'albumin', name: 'Albumin', normal: '3.0-6.0', unit: 'g/dL', check: (v) => v >= 3.0 && v <= 6.0 },
+  { key: 'globulin', name: 'Globulin', normal: '1.5-3.0', unit: 'g/dL', check: (v) => v >= 1.5 && v <= 3.0 },
+  { key: 'total bilirubin', name: 'Total Bilirubin', normal: '0.10-1.20', unit: 'mg/dL', check: (v) => v >= 0.10 && v <= 1.20 },
+  { key: 'direct bilirubin', name: 'Direct Bilirubin', normal: '0.10-0.30', unit: 'mg/dL', check: (v) => v >= 0.10 && v <= 0.30 },
+
+  // Immunology & CXR
+  { key: 'hbsag', name: 'HBsAg', normal: 'Negative', unit: '', check: (s) => /neg|negative|ลบ/i.test(s) },
+  { key: 'anti-hbs', name: 'Anti-HBs', normal: 'Negative/Positive', unit: '', check: () => true },
+  { key: 'anti-hcv', name: 'Anti-HCV', normal: 'Negative', unit: '', check: (s) => /neg|negative|ลบ/i.test(s) },
+  { key: 'metamphethamine', name: 'Metamphethamine', normal: 'Negative', unit: '', check: (s) => /neg|negative|ลบ/i.test(s) },
+  { key: 'cxr', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) },
+  { key: 'เอกซเรย์', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) }
+];
+
+function getLabReferenceInfo(headerName) {
+  if (!headerName) return null;
+  const lower = headerName.toLowerCase();
+  for (const ref of STANDARD_LAB_REFS) {
+    if (lower.includes(ref.key)) {
+      return ref;
+    }
+  }
+  return null;
+}
+
+function evaluateLabStatus(val, refInfo) {
+  if (val === null || val === undefined || String(val).trim() === '') {
+    return { isAbnormal: false, isKnown: false };
+  }
+  if (!refInfo) {
+    return { isAbnormal: false, isKnown: false };
+  }
+
+  const strVal = String(val).trim();
+  const numVal = parseFloat(strVal);
+  const isNum = !isNaN(numVal);
+
+  if (typeof refInfo.check === 'function') {
+    try {
+      const isOk = refInfo.check(isNum ? numVal : null, strVal);
+      return { isAbnormal: !isOk, isKnown: true };
+    } catch (e) {
+      return { isAbnormal: false, isKnown: true };
+    }
+  }
+
+  return { isAbnormal: false, isKnown: true };
+}
+
+/**
+ * ฟังก์ชันทำความสะอาดข้อมูลช่องเซลล์ใน Wide Matrix
+ * แก้ไขปัญหา Google Sheets แปลงวันที่/เวลา และ Range ของ UA เช่น 0-1, 0-2 เป็น ISO Date
+ */
+function formatMatrixDisplayValue(cell, headerName, colIndex) {
+  if (cell === null || cell === undefined || cell === '') return '';
+  const str = String(cell).trim();
+
+  // 1. วันที่ตรวจ (คอลัมน์ 0 หรือชื่อมีคำว่า 'วัน')
+  if (colIndex === 0 || (headerName && headerName.includes('วันที่') && !headerName.includes('เวลา'))) {
+    if (str.includes('T')) {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+      return str.split('T')[0];
+    }
+    return str;
+  }
+
+  // 2. เวลา (คอลัมน์ 2 หรือชื่อคอลัมน์คือ 'เวลา')
+  if (colIndex === 2 || headerName === 'เวลา') {
+    if (str.includes('T')) {
+      const parts = str.split('T');
+      if (parts[1]) {
+        return parts[1].slice(0, 5); // HH:mm
+      }
+    }
+    return str.slice(0, 5);
+  }
+
+  // 3. ผล Lab ปัสสาวะที่มีโอกาสถูก Google Sheets แปลงช่วงตัวเลขเป็น Date เช่น 0-1, 0-2, 1-2
+  const isUaRangeLab = headerName && (
+    headerName.includes('RBC (UA)') ||
+    headerName.includes('WBC (UA)') ||
+    headerName.includes('Epi. Sq') ||
+    headerName.includes('RBC (Stool)') ||
+    headerName.includes('WBC (Stool)')
+  );
+
+  if (isUaRangeLab && str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      if (m <= 12 && day <= 31) {
+        return `${m}-${day}`;
+      }
+    }
+  }
+
+  // ลบเครื่องหมาย single quote นำหน้าที่ใช้หน่วงสตริงใน Excel
+  if (str.startsWith("'")) {
+    return str.substring(1);
+  }
+
+  return str;
+}
 
 // Safe DOM Helper Functions
 function safeSetText(id, text) {
@@ -278,6 +468,36 @@ function setupEventListeners() {
   if (pttypeFilter) pttypeFilter.addEventListener('change', applyFilters);
   if (dateStart) dateStart.addEventListener('change', applyFilters);
   if (dateEnd) dateEnd.addEventListener('change', applyFilters);
+
+  // Matrix Controls Listeners
+  const matrixSearch = document.getElementById('matrixSearch');
+  const matrixSearchClear = document.getElementById('matrixSearchClear');
+  const matrixPageSize = document.getElementById('matrixPageSize');
+
+  if (matrixSearch) {
+    matrixSearch.addEventListener('input', debounce((e) => {
+      appState.matrixState.search = e.target.value.trim().toLowerCase();
+      appState.matrixState.currentPage = 1;
+      renderMatrixTable();
+    }, 250));
+  }
+
+  if (matrixSearchClear) {
+    matrixSearchClear.addEventListener('click', () => {
+      if (matrixSearch) matrixSearch.value = '';
+      appState.matrixState.search = '';
+      appState.matrixState.currentPage = 1;
+      renderMatrixTable();
+    });
+  }
+
+  if (matrixPageSize) {
+    matrixPageSize.addEventListener('change', (e) => {
+      appState.matrixState.pageSize = parseInt(e.target.value, 10) || 25;
+      appState.matrixState.currentPage = 1;
+      renderMatrixTable();
+    });
+  }
 }
 
 function applyFilters() {
@@ -623,6 +843,7 @@ function renderPatientHistoryCharts(hn) {
   const ldlVals = patientVisits.map(v => extractLabValue(v, ['ldl']));
   const hdlVals = patientVisits.map(v => extractLabValue(v, ['hdl']));
 
+  const egfrVals = patientVisits.map(v => extractLabValue(v, ['egfr', 'gfr']));
   const bunVals = patientVisits.map(v => extractLabValue(v, ['bun']));
   const crVals = patientVisits.map(v => extractLabValue(v, ['creatinine']));
   const uricVals = patientVisits.map(v => extractLabValue(v, ['uric']));
@@ -653,7 +874,7 @@ function renderPatientHistoryCharts(hn) {
     });
   }
 
-  // Chart 2: Liver & Kidney
+  // Chart 2: Liver & Kidney (includes eGFR)
   destroyChart('chartHistoryOrgan');
   const ctxOrgan = document.getElementById('chartHistoryOrgan');
   if (ctxOrgan) {
@@ -662,6 +883,7 @@ function renderPatientHistoryCharts(hn) {
       data: {
         labels: labels,
         datasets: [
+          { label: 'eGFR', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
           { label: 'BUN', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
           { label: 'Cr', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 },
           { label: 'Uric', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 5 },
@@ -706,17 +928,30 @@ function renderIndividualLabTable(row) {
     const headerName = appState.headers[c] || '';
     if (c === 87 || c === 89) continue; // Skip CJ and CL headers in lab list
 
-    const val = row.rawRow[c];
-    if (val === null || val === undefined || String(val).trim() === '') continue;
+    const rawVal = row.rawRow[c];
+    if (rawVal === null || rawVal === undefined || String(rawVal).trim() === '') continue;
+
+    // ทำความสะอาดค่าผลแล็บ
+    const displayVal = formatMatrixDisplayValue(rawVal, headerName, c);
+    const refInfo = getLabReferenceInfo(headerName);
+    const evalResult = evaluateLabStatus(displayVal, refInfo);
 
     labCount++;
     const tr = document.createElement('tr');
+
+    let statusBadge = '<span class="badge badge-normal"><i class="fa-solid fa-check me-1"></i>ปกติ</span>';
+    if (evalResult.isAbnormal) {
+      statusBadge = '<span class="badge badge-abnormal"><i class="fa-solid fa-triangle-exclamation me-1"></i>ผิดปกติ</span>';
+    }
+
+    const refDisplay = refInfo ? `${refInfo.normal}${refInfo.unit ? ' ' + refInfo.unit : ''}` : '-';
+
     tr.innerHTML = `
       <td class="text-center text-muted fs-9">${labCount}</td>
       <td class="fw-bold">${headerName}</td>
-      <td class="font-monospace fw-semibold">${val}</td>
-      <td class="text-muted fs-8">-</td>
-      <td class="text-center"><span class="badge badge-normal">ปกติ</span></td>
+      <td class="font-monospace fw-semibold ${evalResult.isAbnormal ? 'text-danger fs-7' : 'text-dark'}">${displayVal}</td>
+      <td class="text-secondary fs-8">${refDisplay}</td>
+      <td class="text-center">${statusBadge}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -800,20 +1035,65 @@ function switchToIndividualTab(hn) {
 function renderMatrixTable() {
   const thead = document.getElementById('matrixThead');
   const tbody = document.getElementById('matrixTbody');
+  const countBadge = document.getElementById('matrixRowCount');
+  const pageInfo = document.getElementById('matrixPageInfo');
+  const paginationUl = document.getElementById('matrixPagination');
   if (!thead || !tbody) return;
 
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
   const headers = appState.headers;
-  const rows = appState.allRows;
+  const allRows = appState.allRows;
 
-  if (!headers.length || !rows.length) {
+  if (!headers.length || !allRows.length) {
     tbody.innerHTML = '<tr><td class="text-center py-4 text-muted">ไม่พบข้อมูลในตาราง</td></tr>';
+    if (countBadge) countBadge.textContent = '0 แถว';
+    if (pageInfo) pageInfo.textContent = 'แสดงหน้า 0 จาก 0';
+    if (paginationUl) paginationUl.innerHTML = '';
     return;
   }
 
-  // Build Head
+  // 1. กรองข้อมูลตามคำค้นหา (Search)
+  const searchQuery = (appState.matrixState.search || '').trim().toLowerCase();
+  let matchedRows = allRows;
+
+  if (searchQuery) {
+    matchedRows = allRows.filter(r => {
+      if (!r.rawRow) return false;
+      // ตรวจสอบทั้งตัว string ของ rawRow และฟิลด์หลัก
+      return r.rawRow.some(c => c !== null && c !== undefined && String(c).toLowerCase().includes(searchQuery)) ||
+             (r.hn && r.hn.toLowerCase().includes(searchQuery)) ||
+             (r.vn && r.vn.toLowerCase().includes(searchQuery)) ||
+             (r.ptname && r.ptname.toLowerCase().includes(searchQuery));
+    });
+  }
+
+  const totalMatched = matchedRows.length;
+  if (countBadge) countBadge.textContent = `${totalMatched.toLocaleString()} แถว ${searchQuery ? '(กรองแล้ว)' : ''}`;
+
+  // 2. คำนวณการแบ่งหน้า (Pagination)
+  const pageSize = appState.matrixState.pageSize || 25;
+  const totalPages = Math.max(1, Math.ceil(totalMatched / pageSize));
+
+  if (appState.matrixState.currentPage > totalPages) {
+    appState.matrixState.currentPage = totalPages;
+  }
+  if (appState.matrixState.currentPage < 1) {
+    appState.matrixState.currentPage = 1;
+  }
+  const curPage = appState.matrixState.currentPage;
+
+  const startIndex = (curPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalMatched);
+  const pageRows = matchedRows.slice(startIndex, endIndex);
+
+  // อัปเดตข้อมูลหน้า
+  if (pageInfo) {
+    pageInfo.textContent = `แสดงแถวที่ ${totalMatched > 0 ? (startIndex + 1).toLocaleString() : 0} ถึง ${endIndex.toLocaleString()} จากทั้งหมด ${totalMatched.toLocaleString()} รายการ (หน้า ${curPage} / ${totalPages})`;
+  }
+
+  // 3. สร้างหัวตาราง (Thead)
   const trHead = document.createElement('tr');
   headers.forEach((h, idx) => {
     const th = document.createElement('th');
@@ -824,20 +1104,80 @@ function renderMatrixTable() {
   });
   thead.appendChild(trHead);
 
-  // Build Body (first 100 rows for performance)
-  const displayRows = rows.slice(0, 100);
-  displayRows.forEach(r => {
-    if (!r.rawRow) return;
-    const tr = document.createElement('tr');
-    r.rawRow.forEach((cell, idx) => {
-      const td = document.createElement('td');
-      td.textContent = (cell === null || cell === undefined) ? '' : cell;
-      if (idx === 87) td.className = 'fw-bold text-info';
-      if (idx === 89) td.className = 'fw-bold text-primary';
-      tr.appendChild(td);
+  // 4. แสดงแถวข้อมูลในหน้านั้น (Tbody)
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-5 text-muted">ไม่พบข้อมูลที่ตรงกับคำค้นหา "${searchQuery}"</td></tr>`;
+  } else {
+    pageRows.forEach(r => {
+      if (!r.rawRow) return;
+      const tr = document.createElement('tr');
+      r.rawRow.forEach((cell, idx) => {
+        const td = document.createElement('td');
+        const headerName = headers[idx] || '';
+        // ฟอร์แมตค่า วันที่, เวลา, และช่วงค่า UA เช่น 0-1, 0-2
+        const displayVal = formatMatrixDisplayValue(cell, headerName, idx);
+
+        td.textContent = displayVal;
+        if (idx === 87) td.className = 'fw-bold text-info';
+        if (idx === 89) td.className = 'fw-bold text-primary';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(tr);
-  });
+  }
+
+  // 5. เรนเดอร์ปุ่มตัวเลขหน้า (Pagination Navigation)
+  renderMatrixPaginationControls(curPage, totalPages);
+}
+
+function renderMatrixPaginationControls(curPage, totalPages) {
+  const paginationUl = document.getElementById('matrixPagination');
+  if (!paginationUl) return;
+
+  paginationUl.innerHTML = '';
+  if (totalPages <= 1) return;
+
+  // First & Prev
+  const liFirst = document.createElement('li');
+  liFirst.className = `page-item ${curPage === 1 ? 'disabled' : ''}`;
+  liFirst.innerHTML = `<button class="page-link" onclick="changeMatrixPage(1)"><i class="fa-solid fa-angles-left"></i></button>`;
+  paginationUl.appendChild(liFirst);
+
+  const liPrev = document.createElement('li');
+  liPrev.className = `page-item ${curPage === 1 ? 'disabled' : ''}`;
+  liPrev.innerHTML = `<button class="page-link" onclick="changeMatrixPage(${curPage - 1})"><i class="fa-solid fa-angle-left"></i></button>`;
+  paginationUl.appendChild(liPrev);
+
+  // Page numbers around current
+  const maxButtons = 5;
+  let startPage = Math.max(1, curPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+  if (endPage - startPage + 1 < maxButtons) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+
+  for (let p = startPage; p <= endPage; p++) {
+    const li = document.createElement('li');
+    li.className = `page-item ${p === curPage ? 'active' : ''}`;
+    li.innerHTML = `<button class="page-link" onclick="changeMatrixPage(${p})">${p}</button>`;
+    paginationUl.appendChild(li);
+  }
+
+  // Next & Last
+  const liNext = document.createElement('li');
+  liNext.className = `page-item ${curPage === totalPages ? 'disabled' : ''}`;
+  liNext.innerHTML = `<button class="page-link" onclick="changeMatrixPage(${curPage + 1})"><i class="fa-solid fa-angle-right"></i></button>`;
+  paginationUl.appendChild(liNext);
+
+  const liLast = document.createElement('li');
+  liLast.className = `page-item ${curPage === totalPages ? 'disabled' : ''}`;
+  liLast.innerHTML = `<button class="page-link" onclick="changeMatrixPage(${totalPages})"><i class="fa-solid fa-angles-right"></i></button>`;
+  paginationUl.appendChild(liLast);
+}
+
+function changeMatrixPage(page) {
+  appState.matrixState.currentPage = page;
+  renderMatrixTable();
 }
 
 // =========================================================================
