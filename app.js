@@ -5,7 +5,7 @@
  */
 
 // URL ของ Google Apps Script Web App (สามารถปรับเปลี่ยนผ่านหน้าเว็บได้)
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxJylbfFpsS1kAJgfIw9eYLGajDoDwEJvBSEnkLvWDe7ALwupMd29NL2IQH9xB0IaeB/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzsfEEHvUof0MJL5fk14r_eAmqO-K0oP68bod-Q7oTOdlsm8YMqzS6Ick17SQn3lNw/exec';
 
 const appState = {
   apiUrl: localStorage.getItem('saiyok_api_url') || DEFAULT_API_URL,
