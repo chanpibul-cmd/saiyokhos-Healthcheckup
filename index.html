@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบตรวจสุขภาพประจำปีเจ้าหน้าที่ - โรงพยาบาลไทรโยค</title>
+
+  <!-- Google Fonts: Sarabun & Kanit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Font Awesome 6.5.1 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- SweetAlert2 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ========================================================================= -->
+  <!-- 1. Navigation Bar -->
+  <!-- ========================================================================= -->
+  <nav class="navbar navbar-dark navbar-custom py-2 sticky-top">
+    <div class="container-fluid px-3 px-lg-4">
+      <div class="d-flex align-items-center gap-3">
+        <div class="brand-icon shadow-sm">
+          <i class="fa-solid fa-heart-pulse"></i>
+        </div>
+        <div>
+          <div class="navbar-brand m-0 fw-bold fs-6 fs-md-5 d-flex align-items-center gap-2">
+            <span>ระบบตรวจสุขภาพประจำปีเจ้าหน้าที่</span>
+            <span class="badge bg-white text-dark fs-9 fw-normal px-2 py-1 rounded-pill d-none d-md-inline-block">GitHub Edition</span>
+          </div>
+          <div class="text-white-50 fs-9">กลุ่มงานบริการด้านปฐมภูมิและองค์รวม โรงพยาบาลไทรโยค</div>
+        </div>
+      </div>
+
+      <!-- User Controls in Navbar -->
+      <div id="navUserControls" class="d-flex align-items-center gap-2 d-none">
+        <button class="btn btn-light btn-sm text-dark d-flex align-items-center gap-1 shadow-sm" onclick="loadSheetData()" title="รีเฟรชข้อมูล">
+          <i class="fa-solid fa-rotate"></i>
+          <span class="d-none d-sm-inline">รีเฟรช</span>
+        </button>
+
+        <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" title="ตั้งค่า API Web App">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+
+        <div class="dropdown">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown">
+            <i class="fa-solid fa-circle-user"></i>
+            <span id="navUserName" class="d-none d-md-inline">admin11278</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+            <li><h6 class="dropdown-header">สถานะ: ผู้ดูแลระบบ</h6></li>
+            <li><a class="dropdown-item" href="https://docs.google.com/spreadsheets/d/1ejjut45lXZ-G-qxpkAbmGVGk5JhcwZ8CGyA46Bx_w4k/edit" target="_blank"><i class="fa-solid fa-table me-2 text-success"></i>เปิด Google Sheets</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket me-2"></i>ออกจากระบบ</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- 2. Login Screen (แสดงเมื่อยังไม่ได้เข้าสู่ระบบ) -->
+  <!-- ========================================================================= -->
+  <section id="loginSection" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="mb-3">
+          <span class="d-inline-flex align-items-center justify-content-center bg-white text-primary rounded-circle shadow" style="width: 65px; height: 65px; font-size: 1.8rem;">
+            <i class="fa-solid fa-hospital-user text-teal"></i>
+          </span>
+        </div>
+        <h4 class="fw-bold mb-1">เข้าสู่ระบบตรวจสุขภาพ</h4>
+        <div class="text-white-50 fs-8">โรงพยาบาลไทรโยค จ.กาญจนบุรี</div>
+      </div>
+      <div class="login-body">
+        <div id="loginError" class="alert alert-danger py-2 fs-8 mb-3 d-none"></div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="mb-3">
+            <label class="form-label fw-semibold fs-8 text-secondary">ชื่อผู้ใช้ (Username)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
+              <input type="text" class="form-control" id="loginUsername" placeholder="ระบุชื่อผู้ใช้" value="admin11278" required autocomplete="username">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold fs-8 text-secondary">รหัสผ่าน (Password)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
+              <input type="password" class="form-control" id="loginPassword" placeholder="ระบุรหัสผ่าน" value="admin11278" required autocomplete="current-password">
+            </div>
+          </div>
+
+          <button type="submit" id="btnLoginSubmit" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm" style="background-color: var(--primary-teal); border: none;">
+            <i class="fa-solid fa-right-to-bracket me-1"></i> เข้าสู่ระบบ
+          </button>
+        </form>
+
+        <div class="mt-4 pt-3 border-top text-center text-muted fs-8">
+          <i class="fa-solid fa-shield-halved text-success me-1"></i> เชื่อมต่อ Google Sheets ผ่าน Google Apps Script Web App
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 3. Main Dashboard (แสดงเมื่อเข้าสู่ระบบสำเร็จ) -->
+  <!-- ========================================================================= -->
+  <main id="dashboardSection" class="container-fluid px-3 px-lg-4 py-4 d-none">
+
+    <!-- KPI Summary Cards -->
+    <div class="row g-3 mb-4">
+      <!-- Total -->
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card stat-card p-3 h-100 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted fs-8 fw-semibold">เจ้าหน้าที่ทั้งหมด</span>
+            <div class="icon-box bg-primary bg-opacity-10 text-primary">
+              <i class="fa-solid fa-users"></i>
+            </div>
+          </div>
+          <div class="fs-4 fw-bold font-monospace" id="statTotal">0</div>
+          <div class="fs-9 text-muted mt-1">คนในฐานข้อมูล</div>
+        </div>
+      </div>
+
+      <!-- Normal Group -->
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card stat-card p-3 h-100 shadow-sm border-success border-opacity-25">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-success fs-8 fw-semibold">กลุ่มปกติ (CL)</span>
+            <div class="icon-box bg-success bg-opacity-10 text-success">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+          </div>
+          <div class="fs-4 fw-bold font-monospace text-success" id="statNormal">0</div>
+          <div class="fs-9 text-muted mt-1">สุขภาพดี / ปกติ</div>
+        </div>
+      </div>
+
+      <!-- Risk Group -->
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card stat-card p-3 h-100 shadow-sm border-warning border-opacity-25">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-warning fs-8 fw-semibold">กลุ่มเสี่ยง (CL)</span>
+            <div class="icon-box bg-warning bg-opacity-10 text-warning">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+          </div>
+          <div class="fs-4 fw-bold font-monospace text-warning" id="statRisk">0</div>
+          <div class="fs-9 text-muted mt-1">มีภาวะเสี่ยงสุขภาพ</div>
+        </div>
+      </div>
+
+      <!-- Sick Group -->
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card stat-card p-3 h-100 shadow-sm border-danger border-opacity-25">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-danger fs-8 fw-semibold">กลุ่มป่วย (CL)</span>
+            <div class="icon-box bg-danger bg-opacity-10 text-danger">
+              <i class="fa-solid fa-circle-xmark"></i>
+            </div>
+          </div>
+          <div class="fs-4 fw-bold font-monospace text-danger" id="statSick">0</div>
+          <div class="fs-9 text-muted mt-1">ตรวจพบโรค / ผิดปกติ</div>
+        </div>
+      </div>
+
+      <!-- Unassessed Group -->
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card stat-card p-3 h-100 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-secondary fs-8 fw-semibold">ยังไม่ประเมิน</span>
+            <div class="icon-box bg-secondary bg-opacity-10 text-secondary">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+          </div>
+          <div class="fs-4 fw-bold font-monospace text-secondary" id="statUnassessed">0</div>
+          <div class="fs-9 text-muted mt-1">รอการจัดกลุ่ม</div>
+        </div>
+      </div>
+
+      <!-- Has Advice -->
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card stat-card p-3 h-100 shadow-sm border-info border-opacity-25">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-info fs-8 fw-semibold">มีคำแนะนำ (CJ)</span>
+            <div class="icon-box bg-info bg-opacity-10 text-info">
+              <i class="fa-solid fa-comment-medical"></i>
+            </div>
+          </div>
+          <div class="fs-4 fw-bold font-monospace text-info" id="statAdvice">0</div>
+          <div class="fs-9 text-muted mt-1">บันทึกคำแนะนำแล้ว</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Action Toolbar -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+      <div class="card-body p-3">
+        <div class="row g-2 align-items-center">
+          
+          <!-- Search box -->
+          <div class="col-12 col-md-4 col-lg-3">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+              <input type="text" class="form-control" id="searchBox" placeholder="ค้นหา HN, VN, ชื่อ-นามสกุล...">
+            </div>
+          </div>
+
+          <!-- Group Filter (CL) -->
+          <div class="col-6 col-md-3 col-lg-2">
+            <select class="form-select form-select-sm" id="filterGroup">
+              <option value="all">กลุ่มสุขภาพ (ทั้งหมด)</option>
+              <option value="ปกติ">กลุ่มปกติ (เขียว)</option>
+              <option value="เสี่ยง">กลุ่มเสี่ยง (เหลือง/ส้ม)</option>
+              <option value="ป่วย">กลุ่มป่วย (แดง)</option>
+              <option value="unassessed">ยังไม่ประเมิน</option>
+            </select>
+          </div>
+
+          <!-- Pttype Filter -->
+          <div class="col-6 col-md-3 col-lg-2">
+            <select class="form-select form-select-sm" id="filterPttype">
+              <option value="all">สิทธิการรักษา (ทั้งหมด)</option>
+              <option value="80">80 - ข้าราชการ</option>
+              <option value="81">81 - ประกันสังคม</option>
+            </select>
+          </div>
+
+          <!-- Date Start -->
+          <div class="col-6 col-md-3 col-lg-2">
+            <input type="date" class="form-control form-select-sm" id="filterDateStart" title="วันที่ตรวจเริ่มต้น">
+          </div>
+
+          <!-- Date End -->
+          <div class="col-6 col-md-3 col-lg-1">
+            <input type="date" class="form-control form-select-sm" id="filterDateEnd" title="วันที่ตรวจสิ้นสุด">
+          </div>
+
+          <!-- Export Excel -->
+          <div class="col-12 col-lg-2 text-lg-end">
+            <button class="btn btn-sm btn-outline-success w-100 d-flex align-items-center justify-content-center gap-1" onclick="exportTableToExcel()">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>ส่งออก Excel</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table Card -->
+    <div class="card border-0 shadow-sm rounded-3">
+      <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <i class="fa-solid fa-table-list text-primary"></i>
+          <span class="fw-bold">รายชื่อเจ้าหน้าที่ตรวจสุขภาพ</span>
+          <span id="tableRowCount" class="badge bg-light text-secondary border fs-9">0 รายการ</span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover table-custom" id="patientTable">
+          <thead>
+            <tr>
+              <th style="width: 45px;" class="text-center">#</th>
+              <th>วันที่ตรวจ</th>
+              <th>HN</th>
+              <th>ชื่อ-นามสกุล</th>
+              <th class="text-center">อายุ</th>
+              <th>สิทธิ</th>
+              <th>กลุ่มสุขภาพ (CL)</th>
+              <th style="min-width: 170px;">คำแนะนำ (CJ)</th>
+              <th class="text-center">BMI</th>
+              <th class="text-center">ความดัน</th>
+              <th class="text-end" style="min-width: 220px;">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="patientTableBody">
+            <!-- Dynamic rows will be rendered here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Loading Spinner for Table -->
+      <div id="tableLoading" class="text-center py-5">
+        <div class="spinner-border text-primary mb-2" role="status"></div>
+        <div class="text-muted fs-8">กำลังโหลดข้อมูลจาก Google Sheets...</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. Modal: บันทึกข้อมูล กลุ่ม CL (ปกติ, เสี่ยง, ป่วย) และ คำแนะนำ CJ -->
+  <!-- ========================================================================= -->
+  <div class="modal fade" id="assessmentEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header navbar-custom text-white py-3">
+          <h5 class="modal-title font-heading fs-6 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-user-doctor"></i>
+            <span>ประเมินผลสุขภาพเจ้าหน้าที่ (บันทึกกลุ่ม CL และคำแนะนำ CJ)</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+
+          <!-- Patient Summary Card -->
+          <div class="card bg-light border-0 rounded-3 mb-3 p-3">
+            <div class="row g-2 fs-8">
+              <div class="col-6 col-md-3"><strong>HN:</strong> <span id="modalAsmHn">-</span></div>
+              <div class="col-6 col-md-5"><strong>ชื่อ-นามสกุล:</strong> <span id="modalAsmName" class="fw-bold text-primary">-</span></div>
+              <div class="col-6 col-md-2"><strong>อายุ:</strong> <span id="modalAsmAge">-</span></div>
+              <div class="col-6 col-md-2"><strong>วันที่ตรวจ:</strong> <span id="modalAsmDate">-</span></div>
+              <div class="col-6 col-md-3"><strong>BMI:</strong> <span id="modalAsmBmi">-</span></div>
+              <div class="col-6 col-md-3"><strong>ความดัน:</strong> <span id="modalAsmBp">-</span></div>
+              <div class="col-12 col-md-6"><strong>การวินิจฉัย:</strong> <span id="modalAsmDiag">-</span></div>
+              <div class="col-12"><strong>โรคประจำตัว (PMH):</strong> <span id="modalAsmPmh" class="text-secondary">-</span></div>
+            </div>
+          </div>
+
+          <form id="formAssessmentEdit" onsubmit="event.preventDefault(); saveAssessmentChanges();">
+            <!-- 1. การเลือกกลุ่ม (คอลัมน์ CL) -->
+            <div class="mb-3">
+              <label class="form-label fw-bold text-dark fs-7 d-flex align-items-center gap-1">
+                <span>1. จัดกลุ่มสุขภาพเจ้าหน้าที่ (คอลัมน์ CL)</span>
+                <span class="text-danger">*</span>
+              </label>
+              <div class="row g-2">
+                <div class="col-12 col-md-4">
+                  <label class="card p-3 border rounded-3 text-center cursor-pointer h-100 hover-shadow">
+                    <input type="radio" name="groupChoice" value="ปกติ" class="form-check-input mx-auto mb-2" required>
+                    <span class="badge-group normal mb-1 mx-auto"><i class="fa-solid fa-circle-check"></i> ปกติ</span>
+                    <span class="fs-9 text-muted d-block mt-1">ผลตรวจอยู่ในเกณฑ์มาตรฐาน ไม่พบโรค</span>
+                  </label>
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="card p-3 border rounded-3 text-center cursor-pointer h-100 hover-shadow">
+                    <input type="radio" name="groupChoice" value="เสี่ยง" class="form-check-input mx-auto mb-2">
+                    <span class="badge-group risk mb-1 mx-auto"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยง</span>
+                    <span class="fs-9 text-muted d-block mt-1">มีภาวะเสี่ยง (เช่น น้ำหนักเกิน, ความดันปานกลาง)</span>
+                  </label>
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="card p-3 border rounded-3 text-center cursor-pointer h-100 hover-shadow">
+                    <input type="radio" name="groupChoice" value="ป่วย" class="form-check-input mx-auto mb-2">
+                    <span class="badge-group sick mb-1 mx-auto"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>
+                    <span class="fs-9 text-muted d-block mt-1">ผลตรวจผิดปกติชัดเจน / เป็นโรคเรื้อรัง</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. คำแนะนำ / ข้อควรปฏิบัติ (คอลัมน์ CJ) -->
+            <div class="mb-3">
+              <label class="form-label fw-bold text-dark fs-7">2. คำแนะนำ / ข้อควรปฏิบัติสำหรับเจ้าหน้าที่ (คอลัมน์ CJ)</label>
+              <textarea class="form-control" id="modalAdviceText" rows="3" placeholder="ระบุคำแนะนำด้านสุขภาพ การปรับพฤติกรรม อาหาร หรือการนัดหมายติดตามผล..."></textarea>
+              <div class="form-text fs-9">ข้อมูลนี้จะถูกบันทึกลงในคอลัมน์ CJ ของ Google Sheets โดยตรง</div>
+            </div>
+
+            <div class="modal-footer px-0 pb-0 pt-3 border-top">
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+              <button type="submit" id="btnSaveAssessment" class="btn btn-primary btn-sm px-4 shadow-sm" style="background-color: var(--primary-teal); border: none;">
+                <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูล
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 5. Modal: พิมพ์แบบประเมินผลการตรวจสุขภาพ (A4 Print Modal) -->
+  <!-- ========================================================================= -->
+  <div class="modal fade" id="assessmentPrintModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-light py-2">
+          <h5 class="modal-title font-heading fs-6">
+            <i class="fa-solid fa-print me-1 text-primary"></i> พิมพ์แบบประเมินผลการตรวจสุขภาพประจำปี (A4)
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body p-0 bg-secondary bg-opacity-10">
+          <!-- Paper Print Area -->
+          <div id="assessmentPrintArea" class="assessment-sheet shadow-sm my-3">
+            <!-- Header -->
+            <div class="text-center mb-3">
+              <h4 class="mb-1 text-dark">แบบประเมินผลการตรวจสุขภาพประจำปีโรงพยาบาลไทรโยค</h4>
+              <div class="text-muted fs-8">งานตรวจสุขภาพ กลุ่มงานบริการด้านปฐมภูมิและองค์รวม โรงพยาบาลไทรโยค</div>
+            </div>
+
+            <!-- 1. ข้อมูลส่วนบุคคล -->
+            <div class="section-header">1. ข้อมูลส่วนบุคคล</div>
+            <div class="row g-2 mb-2 fs-8">
+              <div class="col-4"><strong>HN:</strong> <span class="dot-line" id="asmHn">-</span></div>
+              <div class="col-5"><strong>ชื่อ - นามสกุล:</strong> <span class="dot-line" id="asmPtName" style="min-width: 170px;">-</span></div>
+              <div class="col-3"><strong>อายุ:</strong> <span class="dot-line" id="asmAge" style="min-width: 50px;">-</span> ปี</div>
+              <div class="col-4"><strong>วันที่ตรวจ:</strong> <span class="dot-line" id="asmDate">-</span></div>
+              <div class="col-8"><strong>โรคประจำตัว:</strong> <span class="dot-line" id="asmChronic" style="min-width: 250px;">-</span></div>
+              <div class="col-4"><strong>น้ำหนัก:</strong> <span class="dot-line" id="asmBw" style="min-width: 60px;">-</span> กก.</div>
+              <div class="col-4"><strong>ส่วนสูง:</strong> <span class="dot-line" id="asmHeight" style="min-width: 60px;">-</span> ซม.</div>
+              <div class="col-4"><strong>สิทธิการรักษา:</strong> <span class="dot-line" id="asmPttype" style="min-width: 100px;">-</span></div>
+            </div>
+
+            <!-- 2. สรุปผลการตรวจและคำแนะนำ (สำหรับแพทย์) -->
+            <div class="section-header">2. สรุปผลการตรวจสุขภาพและคำแนะนำ (สำหรับแพทย์ผู้ตรวจ)</div>
+            <div class="p-2 border rounded-1 mb-2 fs-8 bg-light bg-opacity-25">
+              <div class="mb-2">
+                <strong>สุขภาพทั่วไปอยู่ในเกณฑ์:</strong>
+                <label class="asm-check-label ms-3 me-3">
+                  <input type="radio" name="chkGeneralGroup" id="chkGeneralNormal" class="d-none" onchange="setAsmGeneral('normal')">
+                  <span class="asm-mark" id="mark_chkGeneralNormal">(&nbsp;&nbsp;&nbsp;)</span>
+                  <span class="ms-1">ปกติ</span>
+                </label>
+                <label class="asm-check-label">
+                  <input type="radio" name="chkGeneralGroup" id="chkGeneralAbnormal" class="d-none" onchange="setAsmGeneral('abnormal')">
+                  <span class="asm-mark" id="mark_chkGeneralAbnormal">(&nbsp;&nbsp;&nbsp;)</span>
+                  <span class="ms-1">ผิดปกติ</span>
+                </label>
+              </div>
+
+              <div class="mb-2">
+                <strong>มีปัญหาเรื่องสุขภาพ:</strong>
+                <div class="row g-1 mt-1">
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbHt" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbHt">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">ความดันโลหิตสูง</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbDm" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbDm">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">น้ำตาลในเลือดสูง</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbLipid" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbLipid">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">ไขมันในเลือดสูง</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbUric" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbUric">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">กรดยูริกสูง</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbLiver" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbLiver">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">เอนไซม์ตับผิดปกติ</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbKidney" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbKidney">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">ค่าการทำงานไตผิดปกติ</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbAnemia" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbAnemia">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">ภาวะซีด (โลหิตจาง)</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbObese" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbObese">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1">น้ำหนักเกิน / อ้วน</span>
+                    </label>
+                  </div>
+                  <div class="col-4">
+                    <label class="asm-check-label">
+                      <input type="checkbox" id="chkProbOther" class="d-none" onchange="onAsmCheckChange(this)">
+                      <span class="asm-mark" id="mark_chkProbOther">[&nbsp;&nbsp;&nbsp;]</span>
+                      <span class="ms-1 me-1">อื่นๆ:</span>
+                    </label>
+                    <span class="dot-line" style="min-width: 140px;">&nbsp;</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- คำแนะนำจากคอลัมน์ CJ -->
+              <div class="mt-2">
+                <strong>คำแนะนำ / ข้อควรปฏิบัติ:</strong>
+                <div class="p-2 border rounded bg-white mt-1" id="asmPrintAdvice" style="min-height: 45px; font-weight: 500;">-</div>
+              </div>
+
+              <!-- Doctor Signature -->
+              <div class="row mt-4 text-center">
+                <div class="col-6 offset-6">
+                  ลงชื่อ ................................................................. แพทย์ผู้ตรวจ<br>
+                  ( ................................................................. )<br>
+                  วันที่ ........ / .................... / ................
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. ผลการตรวจสุขภาพช่องปากและฟัน -->
+            <div class="section-header">3. ผลการตรวจสุขภาพช่องปากและฟัน (สำหรับทันตแพทย์)</div>
+            <div class="p-2 border rounded-1 fs-8 bg-light bg-opacity-25">
+              <div class="row g-2 align-items-center">
+                <div class="col-7">
+                  <label class="asm-check-label me-3">
+                    <input type="checkbox" id="chkDentalNormal" class="d-none" onchange="onDentalCheckChange('normal')">
+                    <span class="asm-mark" id="mark_chkDentalNormal">[&nbsp;&nbsp;&nbsp;]</span>
+                    <span class="ms-1">ปกติ ไม่พบฟันผุหรือเหงือกอักเสบ</span>
+                  </label>
+                  <label class="asm-check-label">
+                    <input type="checkbox" id="chkDentalAbnormal" class="d-none" onchange="onDentalCheckChange('abnormal')">
+                    <span class="asm-mark" id="mark_chkDentalAbnormal">[&nbsp;&nbsp;&nbsp;]</span>
+                    <span class="ms-1">พบฟันผุ / หินปูน / ควรรับการรักษา</span>
+                  </label>
+                </div>
+                <div class="col-5 text-center">
+                  ลงชื่อ ..................................................... ทันตแพทย์<br>
+                  ( ..................................................... )
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <!-- End Paper Print Area -->
+        </div>
+
+        <div class="modal-footer bg-light py-2">
+          <button type="button" class="btn btn-primary btn-sm d-flex align-items-center gap-1 shadow-sm" onclick="executePrintDocument()">
+            <i class="fa-solid fa-print"></i> สั่งพิมพ์แบบประเมิน (Print A4)
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 6. Modal: ตั้งค่าการเชื่อมต่อ API (Settings Modal) -->
+  <!-- ========================================================================= -->
+  <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-light py-3">
+          <h5 class="modal-title font-heading fs-6 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-gear text-primary"></i> ตั้งค่าการเชื่อมต่อ Google Apps Script
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold fs-8">Google Apps Script Web App URL</label>
+            <textarea class="form-control font-monospace fs-8" id="apiUrlInput" rows="3"></textarea>
+            <div class="form-text fs-9">URL ที่ได้จากการ Deploy เป็น Web App (สิทธิ์ Anyone)</div>
+          </div>
+          <div class="alert alert-info py-2 fs-9 mb-0">
+            <i class="fa-solid fa-circle-info me-1"></i> ท่านสามารถเปลี่ยนแปลง URL ได้ตลอดเวลาโดยระบบจะบันทึกไว้ในเบราว์เซอร์ของท่าน
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveApiUrlSetting()">บันทึกการตั้งค่า</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5.3 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- SweetAlert2 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.all.min.js"></script>
+
+  <!-- SheetJS (XLSX) for Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Custom App JS -->
+  <script src="app.js"></script>
+</body>
+</html>

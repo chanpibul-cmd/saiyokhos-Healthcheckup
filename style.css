@@ -1,0 +1,286 @@
+/**
+ * =========================================================================
+ * style.css - สไตล์ชีตระบบตรวจสุขภาพเจ้าหน้าที่ รพ.ไทรโยค (GitHub Pages)
+ * =========================================================================
+ */
+
+:root {
+  --primary-teal: #0f766e;
+  --primary-dark: #115e59;
+  --secondary-blue: #0369a1;
+  --accent-purple: #7c3aed;
+  --bg-main: #f8fafc;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+}
+
+body {
+  font-family: 'Sarabun', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: 'Kanit', sans-serif;
+  font-weight: 600;
+}
+
+/* Navbar Custom */
+.navbar-custom {
+  background: linear-gradient(135deg, #0f766e 0%, #0369a1 100%);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: #ffffff;
+}
+
+/* Stat Cards */
+.stat-card {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--card-bg);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+}
+
+.stat-card .icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+/* Group Badges (CL: ปกติ / เสี่ยง / ป่วย) */
+.badge-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.badge-group.normal {
+  background-color: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.badge-group.risk {
+  background-color: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+
+.badge-group.sick {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.badge-group.unassessed {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
+}
+
+/* Data Table */
+.table-custom {
+  margin-bottom: 0;
+  font-size: 0.88rem;
+}
+
+.table-custom th {
+  background-color: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  border-bottom: 2px solid #e2e8f0;
+  vertical-align: middle;
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+
+.table-custom td {
+  vertical-align: middle;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.table-custom tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Advice Display */
+.advice-cell {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.83rem;
+  color: #475569;
+}
+
+/* Login Screen */
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f766e 0%, #0369a1 50%, #1e3a8a 100%);
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.login-header {
+  background: linear-gradient(135deg, #0f766e 0%, #0369a1 100%);
+  padding: 30px 24px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.login-body {
+  padding: 32px 28px;
+}
+
+/* Assessment Form (A4 Print Preview & Sheet) */
+.assessment-sheet {
+  background: #ffffff;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 20px 24px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #000000;
+}
+
+.assessment-sheet h4 {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: 'Kanit', sans-serif;
+  margin-bottom: 2px;
+}
+
+.assessment-sheet .section-header {
+  font-weight: 700;
+  font-size: 12.5px;
+  border-bottom: 1.5px solid #000000;
+  padding-bottom: 3px;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  color: #000000;
+}
+
+.assessment-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.assessment-table th, .assessment-table td {
+  border: 1px solid #333333;
+  padding: 3px 6px;
+  vertical-align: middle;
+}
+
+.assessment-table th {
+  background-color: #f1f5f9 !important;
+  text-align: center;
+  font-weight: 700;
+  color: #000000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.assessment-table .check-cell {
+  text-align: center;
+  width: 55px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.assessment-table .ref-cell {
+  font-size: 10.5px;
+  color: #333333;
+}
+
+.dot-line {
+  border-bottom: 1px dotted #333333;
+  display: inline-block;
+  min-width: 90px;
+  padding: 0 4px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.asm-check-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.3;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.asm-check-label:hover {
+  background-color: #f1f5f9;
+}
+
+.asm-mark {
+  font-family: monospace, Courier, monospace;
+  font-size: 12.5px;
+  display: inline-block;
+  color: #000000 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Print Media Query */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+}
