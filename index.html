@@ -93,12 +93,12 @@
       <div class="login-body">
         <div id="loginError" class="alert alert-danger py-2 fs-8 mb-3 d-none"></div>
 
-        <form id="loginForm" onsubmit="handleLogin(event)">
+        <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="off">
           <div class="mb-3">
             <label class="form-label fw-semibold fs-8 text-secondary">ชื่อผู้ใช้ (Username)</label>
             <div class="input-group">
               <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
-              <input type="text" class="form-control" id="loginUsername" placeholder="ระบุชื่อผู้ใช้" value="admin11278" required autocomplete="username">
+              <input type="text" class="form-control" id="loginUsername" placeholder="ระบุชื่อผู้ใช้" value="" required autocomplete="off">
             </div>
           </div>
 
@@ -106,7 +106,7 @@
             <label class="form-label fw-semibold fs-8 text-secondary">รหัสผ่าน (Password)</label>
             <div class="input-group">
               <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
-              <input type="password" class="form-control" id="loginPassword" placeholder="ระบุรหัสผ่าน" value="admin11278" required autocomplete="current-password">
+              <input type="password" class="form-control" id="loginPassword" placeholder="ระบุรหัสผ่าน" value="" required autocomplete="new-password">
             </div>
           </div>
 
@@ -540,13 +540,42 @@
       <!-- ============================================== -->
       <div class="tab-pane fade" id="tab-master" role="tabpanel">
         <div class="data-card">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
-              <i class="fa-solid fa-list-check text-success"></i> รายชื่อเจ้าหน้าที่และผลการประเมิน
-            </h6>
-            <span class="badge bg-light text-secondary border fs-9" id="masterRowCount">0 รายการ</span>
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <h6 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i class="fa-solid fa-list-check text-success"></i> รายชื่อเจ้าหน้าที่และผลการประเมิน
+              </h6>
+              <small class="text-muted fs-8">ผลการตรวจสุขภาพรายบุคคล พร้อมระบบประเมินกลุ่มสุขภาพ (CL) และคำแนะนำ (CJ)</small>
+            </div>
+            <span class="badge bg-light text-secondary border fs-8" id="masterRowCount">0 รายการ</span>
           </div>
-          <div class="table-responsive table-responsive-custom">
+
+          <!-- Master Table Controls: Search, Page Size, Clear -->
+          <div class="row g-2 align-items-center mb-3 p-2 bg-light rounded-3 border">
+            <div class="col-12 col-md-5">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" id="masterSearch" class="form-control" placeholder="ค้นหาชื่อ, HN, VN, การวินิจฉัย, หรือคำแนะนำ...">
+                <button class="btn btn-outline-secondary" type="button" id="masterSearchClear" title="ล้างการค้นหา">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 d-flex align-items-center gap-2">
+              <label for="masterPageSize" class="fs-8 text-secondary text-nowrap mb-0">แสดงแถว:</label>
+              <select id="masterPageSize" class="form-select form-select-sm" style="width: 85px;">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-4 text-end">
+              <span class="fs-8 text-muted" id="masterPageSummary">กำลังโหลด...</span>
+            </div>
+          </div>
+
+          <div class="table-responsive table-responsive-custom border rounded-3">
             <table class="table table-hover table-custom mb-0" id="masterTable">
               <thead class="sticky-top-th">
                 <tr>
@@ -570,6 +599,18 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Master Table Pagination Bar -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-2 border-top">
+            <div class="fs-8 text-muted" id="masterPageInfo">
+              แสดงหน้า 1 จาก 1
+            </div>
+            <nav aria-label="Master list navigation">
+              <ul class="pagination pagination-sm mb-0" id="masterPagination">
+                <!-- Dynamic Page Buttons -->
+              </ul>
+            </nav>
           </div>
         </div>
       </div>

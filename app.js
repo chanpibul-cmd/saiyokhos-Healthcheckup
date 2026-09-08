@@ -19,6 +19,11 @@ const appState = {
   selectedRow: null,
   charts: {},
   stats: { total: 0, normal: 0, risk: 0, sick: 0, unassessed: 0, has_advice: 0 },
+  masterState: {
+    search: '',
+    pageSize: 25,
+    currentPage: 1
+  },
   matrixState: {
     search: '',
     pageSize: 25,
@@ -254,6 +259,12 @@ function showLoginView() {
   document.getElementById('loginSection').classList.remove('d-none');
   document.getElementById('dashboardSection').classList.add('d-none');
   document.getElementById('navUserControls').classList.add('d-none');
+
+  // ล้างค่าช่อง User/Pass เพื่อความปลอดภัย ไม่ค้างไว้
+  safeSetValue('loginUsername', '');
+  safeSetValue('loginPassword', '');
+  const errEl = document.getElementById('loginError');
+  if (errEl) errEl.classList.add('d-none');
 }
 
 function showDashboardView() {
@@ -306,6 +317,8 @@ async function handleLogin(event) {
         showConfirmButton: false
       });
 
+      userEl.value = '';
+      passEl.value = '';
       showDashboardView();
       loadSheetData();
     } else {
@@ -322,6 +335,8 @@ async function handleLogin(event) {
       localStorage.setItem('saiyok_auth_token', fallbackToken);
       localStorage.setItem('saiyok_auth_user', JSON.stringify(fallbackUser));
 
+      userEl.value = '';
+      passEl.value = '';
       showDashboardView();
       loadSheetData();
     } else {
@@ -469,6 +484,36 @@ function setupEventListeners() {
   if (dateStart) dateStart.addEventListener('change', applyFilters);
   if (dateEnd) dateEnd.addEventListener('change', applyFilters);
 
+  // Master Table Controls Listeners (รายชื่อเจ้าหน้าที่และผลการประเมิน)
+  const masterSearch = document.getElementById('masterSearch');
+  const masterSearchClear = document.getElementById('masterSearchClear');
+  const masterPageSize = document.getElementById('masterPageSize');
+
+  if (masterSearch) {
+    masterSearch.addEventListener('input', debounce((e) => {
+      appState.masterState.search = e.target.value.trim().toLowerCase();
+      appState.masterState.currentPage = 1;
+      renderMasterTable();
+    }, 250));
+  }
+
+  if (masterSearchClear) {
+    masterSearchClear.addEventListener('click', () => {
+      if (masterSearch) masterSearch.value = '';
+      appState.masterState.search = '';
+      appState.masterState.currentPage = 1;
+      renderMasterTable();
+    });
+  }
+
+  if (masterPageSize) {
+    masterPageSize.addEventListener('change', (e) => {
+      appState.masterState.pageSize = parseInt(e.target.value, 10) || 25;
+      appState.masterState.currentPage = 1;
+      renderMasterTable();
+    });
+  }
+
   // Matrix Controls Listeners
   const matrixSearch = document.getElementById('matrixSearch');
   const matrixSearchClear = document.getElementById('matrixSearchClear');
@@ -536,8 +581,7 @@ function applyFilters() {
   });
 
   safeSetText('tabVisitBadge', appState.filteredRows.length.toLocaleString());
-  safeSetText('masterRowCount', `${appState.filteredRows.length.toLocaleString()} รายการ`);
-
+  appState.masterState.currentPage = 1;
   renderMasterTable(appState.filteredRows);
 }
 
@@ -964,11 +1008,17 @@ function renderIndividualLabTable(row) {
 // =========================================================================
 function renderMasterTable(rows) {
   const tbody = document.getElementById('masterTableBody');
+  const countBadge = document.getElementById('masterRowCount');
+  const pageInfo = document.getElementById('masterPageInfo');
+  const pageSummary = document.getElementById('masterPageSummary');
+  const paginationUl = document.getElementById('masterPagination');
   if (!tbody) return;
 
   tbody.innerHTML = '';
 
-  if (!rows.length) {
+  const sourceRows = rows || appState.filteredRows || appState.allRows;
+
+  if (!sourceRows.length) {
     tbody.innerHTML = `
       <tr>
         <td colspan="12" class="text-center py-5 text-muted">
@@ -977,50 +1027,162 @@ function renderMasterTable(rows) {
         </td>
       </tr>
     `;
+    if (countBadge) countBadge.textContent = '0 รายการ';
+    if (pageInfo) pageInfo.textContent = 'แสดงหน้า 0 จาก 0';
+    if (pageSummary) pageSummary.textContent = '0 รายการ';
+    if (paginationUl) paginationUl.innerHTML = '';
     return;
   }
 
-  rows.forEach((r, idx) => {
-    const tr = document.createElement('tr');
+  // 1. ค้นหาข้อมูลภายในหน้าตาราง (In-tab Search)
+  const searchQuery = (appState.masterState.search || '').trim().toLowerCase();
+  let matchedRows = sourceRows;
 
-    let groupBadge = '<span class="badge-group unassessed">ยังไม่ประเมิน</span>';
-    if (r.group_cl === 'ปกติ') groupBadge = '<span class="badge-group normal"><i class="fa-solid fa-circle-check"></i> ปกติ</span>';
-    else if (r.group_cl === 'เสี่ยง') groupBadge = '<span class="badge-group risk"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยง</span>';
-    else if (r.group_cl === 'ป่วย') groupBadge = '<span class="badge-group sick"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>';
+  if (searchQuery) {
+    matchedRows = sourceRows.filter(r => {
+      return (r.hn && r.hn.toLowerCase().includes(searchQuery)) ||
+             (r.vn && r.vn.toLowerCase().includes(searchQuery)) ||
+             (r.ptname && r.ptname.toLowerCase().includes(searchQuery)) ||
+             (r.vstdate && r.vstdate.toLowerCase().includes(searchQuery)) ||
+             (r.all_diag_desc && r.all_diag_desc.toLowerCase().includes(searchQuery)) ||
+             (r.pmh && r.pmh.toLowerCase().includes(searchQuery)) ||
+             (r.advice_cj && r.advice_cj.toLowerCase().includes(searchQuery)) ||
+             (r.group_cl && r.group_cl.toLowerCase().includes(searchQuery));
+    });
+  }
 
-    const pttypeClass = r.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
-    const adviceText = r.advice_cj ? r.advice_cj : '<span class="text-muted fst-italic">-</span>';
-    const diagText = r.all_diag_desc || r.pmh || '-';
+  const totalMatched = matchedRows.length;
+  if (countBadge) countBadge.textContent = `${totalMatched.toLocaleString()} รายการ ${searchQuery ? '(กรองแล้ว)' : ''}`;
 
-    tr.innerHTML = `
-      <td class="text-center text-muted fs-9">${idx + 1}</td>
-      <td>${r.vstdate || '-'}</td>
-      <td class="fw-bold font-monospace text-primary">${r.hn || '-'}</td>
-      <td class="fw-bold">${r.ptname || '-'}</td>
-      <td class="text-center">${r.age_y || '-'}</td>
-      <td><span class="badge ${pttypeClass}">${r.pttype}</span></td>
-      <td>${groupBadge}</td>
-      <td class="advice-cell" title="${r.advice_cj || ''}">${adviceText}</td>
-      <td class="text-center font-monospace">${r.bmi || '-'}</td>
-      <td class="text-center text-nowrap font-monospace">${r.bp || '-'}</td>
-      <td class="text-truncate" style="max-width: 150px;" title="${diagText}">${diagText}</td>
-      <td class="text-nowrap text-end">
-        <button class="btn btn-sm btn-outline-info me-1" onclick="switchToIndividualTab('${r.hn}')" title="ดูข้อมูลรายบุคคล & กราฟ 3 ปี">
-          <i class="fa-solid fa-chart-line"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="openAssessmentModal(${r.rowIndex})" title="ประเมินกลุ่ม CL และคำแนะนำ CJ">
-          <i class="fa-solid fa-pen-to-square"></i> ประเมิน
-        </button>
-        <button class="btn btn-sm btn-outline-success me-1" onclick="openPrintAssessment(${r.rowIndex})" title="พิมพ์แบบประเมิน A4">
-          <i class="fa-solid fa-print"></i> พิมพ์
-        </button>
-        <button class="btn btn-sm btn-outline-danger" onclick="confirmDeletePatient(${r.rowIndex}, '${r.hn}', '${r.ptname}')" title="ลบข้อมูลเจ้าหน้าที่">
-          <i class="fa-solid fa-trash-can"></i>
-        </button>
-      </td>
+  // 2. การแบ่งหน้า (Pagination)
+  const pageSize = appState.masterState.pageSize || 25;
+  const totalPages = Math.max(1, Math.ceil(totalMatched / pageSize));
+
+  if (appState.masterState.currentPage > totalPages) {
+    appState.masterState.currentPage = totalPages;
+  }
+  if (appState.masterState.currentPage < 1) {
+    appState.masterState.currentPage = 1;
+  }
+  const curPage = appState.masterState.currentPage;
+
+  const startIndex = (curPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalMatched);
+  const pageRows = matchedRows.slice(startIndex, endIndex);
+
+  if (pageInfo) {
+    pageInfo.textContent = `แสดงแถวที่ ${totalMatched > 0 ? (startIndex + 1).toLocaleString() : 0} ถึง ${endIndex.toLocaleString()} จากทั้งหมด ${totalMatched.toLocaleString()} รายการ (หน้า ${curPage} / ${totalPages})`;
+  }
+  if (pageSummary) {
+    pageSummary.textContent = `หน้า ${curPage} จาก ${totalPages} (${totalMatched.toLocaleString()} คน)`;
+  }
+
+  // 3. เรนเดอร์แถวข้อมูล
+  if (!pageRows.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="12" class="text-center py-5 text-muted">
+          <i class="fa-solid fa-magnifying-glass fa-2x mb-2 text-secondary opacity-50"></i>
+          <div>ไม่พบรายชื่อเจ้าหน้าที่ที่ตรงกับคำค้นหา "${searchQuery}"</div>
+        </td>
+      </tr>
     `;
-    tbody.appendChild(tr);
-  });
+  } else {
+    pageRows.forEach((r, idx) => {
+      const tr = document.createElement('tr');
+
+      let groupBadge = '<span class="badge-group unassessed">ยังไม่ประเมิน</span>';
+      if (r.group_cl === 'ปกติ') groupBadge = '<span class="badge-group normal"><i class="fa-solid fa-circle-check"></i> ปกติ</span>';
+      else if (r.group_cl === 'เสี่ยง') groupBadge = '<span class="badge-group risk"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยง</span>';
+      else if (r.group_cl === 'ป่วย') groupBadge = '<span class="badge-group sick"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>';
+
+      const pttypeClass = r.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
+      const adviceText = r.advice_cj ? r.advice_cj : '<span class="text-muted fst-italic">-</span>';
+      const diagText = r.all_diag_desc || r.pmh || '-';
+
+      tr.innerHTML = `
+        <td class="text-center text-muted fs-9">${startIndex + idx + 1}</td>
+        <td>${r.vstdate || '-'}</td>
+        <td class="fw-bold font-monospace text-primary">${r.hn || '-'}</td>
+        <td class="fw-bold">${r.ptname || '-'}</td>
+        <td class="text-center">${r.age_y || '-'}</td>
+        <td><span class="badge ${pttypeClass}">${r.pttype}</span></td>
+        <td>${groupBadge}</td>
+        <td class="advice-cell" title="${r.advice_cj || ''}">${adviceText}</td>
+        <td class="text-center font-monospace">${r.bmi || '-'}</td>
+        <td class="text-center text-nowrap font-monospace">${r.bp || '-'}</td>
+        <td class="text-truncate" style="max-width: 150px;" title="${diagText}">${diagText}</td>
+        <td class="text-nowrap text-end">
+          <button class="btn btn-sm btn-outline-info me-1" onclick="switchToIndividualTab('${r.hn}')" title="ดูข้อมูลรายบุคคล & กราฟ 3 ปี">
+            <i class="fa-solid fa-chart-line"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="openAssessmentModal(${r.rowIndex})" title="ประเมินกลุ่ม CL และคำแนะนำ CJ">
+            <i class="fa-solid fa-pen-to-square"></i> ประเมิน
+          </button>
+          <button class="btn btn-sm btn-outline-success me-1" onclick="openPrintAssessment(${r.rowIndex})" title="พิมพ์แบบประเมิน A4">
+            <i class="fa-solid fa-print"></i> พิมพ์
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="confirmDeletePatient(${r.rowIndex}, '${r.hn}', '${r.ptname}')" title="ลบข้อมูลเจ้าหน้าที่">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // 4. เรนเดอร์ปุ่มตัวเลขหน้า (Pagination Navigation)
+  renderMasterPaginationControls(curPage, totalPages);
+}
+
+function renderMasterPaginationControls(curPage, totalPages) {
+  const paginationUl = document.getElementById('masterPagination');
+  if (!paginationUl) return;
+
+  paginationUl.innerHTML = '';
+  if (totalPages <= 1) return;
+
+  // First & Prev
+  const liFirst = document.createElement('li');
+  liFirst.className = `page-item ${curPage === 1 ? 'disabled' : ''}`;
+  liFirst.innerHTML = `<button class="page-link" onclick="changeMasterPage(1)"><i class="fa-solid fa-angles-left"></i></button>`;
+  paginationUl.appendChild(liFirst);
+
+  const liPrev = document.createElement('li');
+  liPrev.className = `page-item ${curPage === 1 ? 'disabled' : ''}`;
+  liPrev.innerHTML = `<button class="page-link" onclick="changeMasterPage(${curPage - 1})"><i class="fa-solid fa-angle-left"></i></button>`;
+  paginationUl.appendChild(liPrev);
+
+  // Page numbers around current
+  const maxButtons = 5;
+  let startPage = Math.max(1, curPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+  if (endPage - startPage + 1 < maxButtons) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+
+  for (let p = startPage; p <= endPage; p++) {
+    const li = document.createElement('li');
+    li.className = `page-item ${p === curPage ? 'active' : ''}`;
+    li.innerHTML = `<button class="page-link" onclick="changeMasterPage(${p})">${p}</button>`;
+    paginationUl.appendChild(li);
+  }
+
+  // Next & Last
+  const liNext = document.createElement('li');
+  liNext.className = `page-item ${curPage === totalPages ? 'disabled' : ''}`;
+  liNext.innerHTML = `<button class="page-link" onclick="changeMasterPage(${curPage + 1})"><i class="fa-solid fa-angle-right"></i></button>`;
+  paginationUl.appendChild(liNext);
+
+  const liLast = document.createElement('li');
+  liLast.className = `page-item ${curPage === totalPages ? 'disabled' : ''}`;
+  liLast.innerHTML = `<button class="page-link" onclick="changeMasterPage(${totalPages})"><i class="fa-solid fa-angles-right"></i></button>`;
+  paginationUl.appendChild(liLast);
+}
+
+function changeMasterPage(page) {
+  appState.masterState.currentPage = page;
+  renderMasterTable();
 }
 
 function switchToIndividualTab(hn) {
