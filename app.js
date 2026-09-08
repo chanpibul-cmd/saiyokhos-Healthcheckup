@@ -5,11 +5,7 @@
  * =========================================================================
  */
 
-<<<<<<< HEAD
-// Web App URL เริ่มต้น (อัปเดตตรงตามที่ Deploy ล่าสุด)
-=======
-// URL ของ Google Apps Script Web App (สามารถปรับเปลี่ยนผ่านหน้าเว็บได้)
->>>>>>> 0b4d988490b791f50ceb7cd5f5d5cc193bc73f21
+// Web App URL เริ่มต้น (อัปเดตตรงตามที่ Deploy ล่าสุด สิทธิ์ Anyone)
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzWoUwgqJcSxi3ij-CHHdbrTRAJYG4iS93zIyXyYuRoooO0K0NkQx8Acs-sEvNh4wvl/exec';
 
 const appState = {
@@ -24,6 +20,22 @@ const appState = {
   charts: {},
   stats: { total: 0, normal: 0, risk: 0, sick: 0, unassessed: 0, has_advice: 0 }
 };
+
+// Safe DOM Helper Functions
+function safeSetText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = (text !== null && text !== undefined) ? text : '-';
+}
+
+function safeSetHtml(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = (html !== null && html !== undefined) ? html : '';
+}
+
+function safeSetValue(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = (val !== null && val !== undefined) ? val : '';
+}
 
 // =========================================================================
 // เมื่อโหลดหน้าเว็บเสร็จสมบูรณ์
@@ -132,6 +144,22 @@ async function handleLogin(event) {
   }
 }
 
+function forceLogout(message) {
+  appState.token = '';
+  appState.user = null;
+  localStorage.removeItem('saiyok_auth_token');
+  localStorage.removeItem('saiyok_auth_user');
+  showLoginView();
+  if (message) {
+    Swal.fire({
+      icon: 'info',
+      title: 'กรุณาเข้าสู่ระบบใหม่',
+      text: message,
+      confirmButtonColor: '#0f766e'
+    });
+  }
+}
+
 function handleLogout() {
   Swal.fire({
     title: 'ยืนยันการออกจากระบบ?',
@@ -143,11 +171,7 @@ function handleLogout() {
     cancelButtonText: 'ยกเลิก'
   }).then((res) => {
     if (res.isConfirmed) {
-      appState.token = '';
-      appState.user = null;
-      localStorage.removeItem('saiyok_auth_token');
-      localStorage.removeItem('saiyok_auth_user');
-      showLoginView();
+      forceLogout();
     }
   });
 }
@@ -170,7 +194,7 @@ async function loadSheetData() {
     Swal.close();
 
     if (data.require_login) {
-      handleLogout();
+      forceLogout(data.message || 'Token หมดอายุหรือจำเป็นต้องเข้าสู่ระบบ');
       return;
     }
 
@@ -220,21 +244,21 @@ function updateKpiCards() {
     else if (r.group_cl === 'ป่วย') countSick++;
   });
 
-  document.getElementById('kpiTotalVisits').textContent = total.toLocaleString();
-  document.getElementById('kpiPttype80').textContent = count80.toLocaleString();
-  document.getElementById('kpiPttype80Pct').textContent = total > 0 ? `${((count80/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%';
+  safeSetText('kpiTotalVisits', total.toLocaleString());
+  safeSetText('kpiPttype80', count80.toLocaleString());
+  safeSetText('kpiPttype80Pct', total > 0 ? `${((count80/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%');
 
-  document.getElementById('kpiPttype81').textContent = count81.toLocaleString();
-  document.getElementById('kpiPttype81Pct').textContent = total > 0 ? `${((count81/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%';
+  safeSetText('kpiPttype81', count81.toLocaleString());
+  safeSetText('kpiPttype81Pct', total > 0 ? `${((count81/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%');
 
-  document.getElementById('kpiGroupNormal').textContent = countNormal.toLocaleString();
-  document.getElementById('kpiGroupNormalPct').textContent = total > 0 ? `${((countNormal/total)*100).toFixed(1)}%` : '0%';
+  safeSetText('kpiGroupNormal', countNormal.toLocaleString());
+  safeSetText('kpiGroupNormalPct', total > 0 ? `${((countNormal/total)*100).toFixed(1)}%` : '0%');
 
-  document.getElementById('kpiGroupRisk').textContent = countRisk.toLocaleString();
-  document.getElementById('kpiGroupRiskPct').textContent = total > 0 ? `${((countRisk/total)*100).toFixed(1)}%` : '0%';
+  safeSetText('kpiGroupRisk', countRisk.toLocaleString());
+  safeSetText('kpiGroupRiskPct', total > 0 ? `${((countRisk/total)*100).toFixed(1)}%` : '0%');
 
-  document.getElementById('kpiGroupSick').textContent = countSick.toLocaleString();
-  document.getElementById('kpiGroupSickPct').textContent = total > 0 ? `${((countSick/total)*100).toFixed(1)}%` : '0%';
+  safeSetText('kpiGroupSick', countSick.toLocaleString());
+  safeSetText('kpiGroupSickPct', total > 0 ? `${((countSick/total)*100).toFixed(1)}%` : '0%');
 }
 
 // =========================================================================
@@ -291,8 +315,8 @@ function applyFilters() {
     return true;
   });
 
-  document.getElementById('tabVisitBadge').textContent = appState.filteredRows.length.toLocaleString();
-  document.getElementById('masterRowCount').textContent = `${appState.filteredRows.length.toLocaleString()} รายการ`;
+  safeSetText('tabVisitBadge', appState.filteredRows.length.toLocaleString());
+  safeSetText('masterRowCount', `${appState.filteredRows.length.toLocaleString()} รายการ`);
 
   renderMasterTable(appState.filteredRows);
 }
@@ -555,24 +579,24 @@ function selectPatient(hn) {
   appState.selectedRow = row;
 
   // Profile Card
-  document.getElementById('indivName').textContent = row.ptname || '-';
-  document.getElementById('indivHn').textContent = row.hn || '-';
-  document.getElementById('indivVn').textContent = row.vn || '-';
-  document.getElementById('indivAge').textContent = row.age_y || '-';
-  document.getElementById('indivBmi').textContent = row.bmi || '-';
-  document.getElementById('indivBp').textContent = row.bp || '-';
-  document.getElementById('indivPmh').textContent = row.pmh || 'ปฏิเสธโรคประจำตัว';
-  document.getElementById('indivAdvice').textContent = row.advice_cj || 'ยังไม่มีคำแนะนำ';
+  safeSetText('indivName', row.ptname || '-');
+  safeSetText('indivHn', row.hn || '-');
+  safeSetText('indivVn', row.vn || '-');
+  safeSetText('indivAge', row.age_y || '-');
+  safeSetText('indivBmi', row.bmi || '-');
+  safeSetText('indivBp', row.bp || '-');
+  safeSetText('indivPmh', row.pmh || 'ปฏิเสธโรคประจำตัว');
+  safeSetText('indivAdvice', row.advice_cj || 'ยังไม่มีคำแนะนำ');
 
   // Badges
   const pttypeClass = row.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
-  document.getElementById('indivPttypeBadge').innerHTML = `<span class="badge ${pttypeClass}">${row.pttype} ${row.pttype_name || ''}</span>`;
+  safeSetHtml('indivPttypeBadge', `<span class="badge ${pttypeClass}">${row.pttype} ${row.pttype_name || ''}</span>`);
 
   let gBadge = '<span class="badge-group unassessed">ยังไม่ประเมิน</span>';
   if (row.group_cl === 'ปกติ') gBadge = '<span class="badge-group normal">ปกติ</span>';
   else if (row.group_cl === 'เสี่ยง') gBadge = '<span class="badge-group risk">เสี่ยง</span>';
   else if (row.group_cl === 'ป่วย') gBadge = '<span class="badge-group sick">ป่วย</span>';
-  document.getElementById('indivGroupBadge').innerHTML = gBadge;
+  safeSetHtml('indivGroupBadge', gBadge);
 
   // 3-Year Historical Comparison Charts
   renderPatientHistoryCharts(hn);
@@ -825,14 +849,14 @@ function openAssessmentModal(rowIndex) {
 
   appState.selectedRow = row;
 
-  document.getElementById('modalAsmHn').textContent = row.hn || '-';
-  document.getElementById('modalAsmName').textContent = row.ptname || '-';
-  document.getElementById('modalAsmAge').textContent = row.age_y ? `${row.age_y} ปี` : '-';
-  document.getElementById('modalAsmDate').textContent = row.vstdate || '-';
-  document.getElementById('modalAsmBmi').textContent = row.bmi || '-';
-  document.getElementById('modalAsmBp').textContent = row.bp || '-';
-  document.getElementById('modalAsmDiag').textContent = row.all_diag_desc || row.pdx || '-';
-  document.getElementById('modalAsmPmh').textContent = row.pmh || 'ไม่มีข้อมูลโรคประจำตัว';
+  safeSetText('modalAsmHn', row.hn || '-');
+  safeSetText('modalAsmName', row.ptname || '-');
+  safeSetText('modalAsmAge', row.age_y ? `${row.age_y} ปี` : '-');
+  safeSetText('modalAsmDate', row.vstdate || '-');
+  safeSetText('modalAsmBmi', row.bmi || '-');
+  safeSetText('modalAsmBp', row.bp || '-');
+  safeSetText('modalAsmDiag', row.all_diag_desc || row.pdx || '-');
+  safeSetText('modalAsmPmh', row.pmh || 'ไม่มีข้อมูลโรคประจำตัว');
 
   // Radio CL
   const groupRadios = document.getElementsByName('groupChoice');
@@ -841,10 +865,13 @@ function openAssessmentModal(rowIndex) {
   });
 
   // Advice CJ
-  document.getElementById('modalAdviceText').value = row.advice_cj || '';
+  safeSetValue('modalAdviceText', row.advice_cj || '');
 
-  const modalEl = new bootstrap.Modal(document.getElementById('assessmentEditModal'));
-  modalEl.show();
+  const modalEl = document.getElementById('assessmentEditModal');
+  if (modalEl) {
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    bsModal.show();
+  }
 }
 
 function openAssessmentModalFromIndiv() {
@@ -1011,20 +1038,20 @@ function openPrintAssessment(rowIndex) {
   appState.selectedRow = row;
 
   // 1. Personal Info
-  document.getElementById('asmHn').textContent = row.hn || '-';
-  document.getElementById('asmPtName').textContent = row.ptname || '-';
-  document.getElementById('asmAge').textContent = row.age_y || '-';
-  document.getElementById('asmDate').textContent = row.vstdate || '-';
-  document.getElementById('asmChronic').textContent = row.pmh || 'ปฏิเสธโรคประจำตัว';
-  document.getElementById('asmBw').textContent = row.bw || '-';
-  document.getElementById('asmHeight').textContent = row.height || '-';
-  document.getElementById('asmPttype').textContent = `สิทธิ ${row.pttype} (${row.pttype_name || ''})`;
+  safeSetText('asmHn', row.hn || '-');
+  safeSetText('asmPtName', row.ptname || '-');
+  safeSetText('asmAge', row.age_y || '-');
+  safeSetText('asmDate', row.vstdate || '-');
+  safeSetText('asmChronic', row.pmh || 'ปฏิเสธโรคประจำตัว');
+  safeSetText('asmBw', row.bw || '-');
+  safeSetText('asmHeight', row.height || '-');
+  safeSetText('asmPttype', `สิทธิ ${row.pttype} (${row.pttype_name || ''})`);
 
   // 2. ตาราง 19 รายการตรวจ
   renderPrint19Items(row);
 
   // 3. คำแนะนำจากคอลัมน์ CJ
-  document.getElementById('asmPrintAdvice').textContent = row.advice_cj || '-';
+  safeSetText('asmPrintAdvice', row.advice_cj || '-');
 
   // 4. เครื่องหมายข้อ 3
   const isAbnormalGeneral = (row.group_cl === 'ป่วย' || row.group_cl === 'เสี่ยง');
@@ -1064,8 +1091,11 @@ function openPrintAssessment(rowIndex) {
   setAsmProblem('chkDentalNormal', false);
   setAsmProblem('chkDentalAbnormal', false);
 
-  const modalEl = new bootstrap.Modal(document.getElementById('assessmentPrintModal'));
-  modalEl.show();
+  const modalEl = document.getElementById('assessmentPrintModal');
+  if (modalEl) {
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    bsModal.show();
+  }
 }
 
 function openPrintFromIndiv() {
