@@ -8,10 +8,31 @@
 // Web App URL เริ่มต้น (อัปเดตตรงตามที่ Deploy ล่าสุด สิทธิ์ Anyone)
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzWoUwgqJcSxi3ij-CHHdbrTRAJYG4iS93zIyXyYuRoooO0K0NkQx8Acs-sEvNh4wvl/exec';
 
+// Helper เช็ค session หมดอายุ (หมดอายุหลังจาก 8 ชั่วโมง หรือปิดแท็บ)
+function getStoredAuth() {
+  const token = sessionStorage.getItem('saiyok_auth_token') || '';
+  const userStr = sessionStorage.getItem('saiyok_auth_user') || 'null';
+  const expire = parseInt(sessionStorage.getItem('saiyok_auth_expire') || '0', 10);
+  const now = Date.now();
+
+  if (!token || !expire || now > expire) {
+    sessionStorage.removeItem('saiyok_auth_token');
+    sessionStorage.removeItem('saiyok_auth_user');
+    sessionStorage.removeItem('saiyok_auth_expire');
+    return { token: '', user: null };
+  }
+
+  let user = null;
+  try { user = JSON.parse(userStr); } catch (e) { user = null; }
+  return { token, user };
+}
+
+const initialAuth = getStoredAuth();
+
 const appState = {
   apiUrl: localStorage.getItem('saiyok_api_url') || DEFAULT_API_URL,
-  token: localStorage.getItem('saiyok_auth_token') || '',
-  user: JSON.parse(localStorage.getItem('saiyok_auth_user') || 'null'),
+  token: initialAuth.token,
+  user: initialAuth.user,
   allRows: [],
   filteredRows: [],
   headers: [],
@@ -97,7 +118,7 @@ const STANDARD_LAB_REFS = [
   { key: 'gfr', name: 'GFR', normal: '> 90', unit: 'mL/min', check: (v) => v >= 60 },
   { key: 'uric acid', name: 'Uric acid', normal: 'M 3.6-8.2 / F 2.3-6.1', unit: 'mg/dL', check: (v) => v >= 2.3 && v <= 8.2 },
   { key: 'cholesterol', name: 'Cholesterol', normal: '< 200', unit: 'mg/dL', check: (v) => v < 200 },
-  { key: 'triglyceride', name: 'Triglyceride', normal: '< 203', unit: 'mg/dL', check: (v) => v < 203 },
+  { key: 'triglyceride', name: 'Triglyceride', normal: '< 150', unit: 'mg/dL', check: (v) => v < 150 },
   { key: 'hdl', name: 'HDL', normal: '> 40', unit: 'mg/dL', check: (v) => v >= 40 },
   { key: 'ldl', name: 'LDL-Direct', normal: '< 100', unit: 'mg/dL', check: (v) => v < 100 },
   { key: 'sgot', name: 'SGOT (AST)', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
@@ -249,6 +270,17 @@ function safeSetValue(id, val) {
   if (el) el.value = (val !== null && val !== undefined) ? val : '';
 }
 
+// XSS Prevention Helper
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // =========================================================================
 // เมื่อโหลดหน้าเว็บเสร็จสมบูรณ์
 // =========================================================================
@@ -316,15 +348,27 @@ async function handleLogin(event) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> กำลังตรวจสอบ...';
 
   try {
-    const url = `${appState.apiUrl}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-    const response = await fetch(url);
+    // ส่งข้อมูลยืนยันตัวตนผ่าน POST Body แทน GET เพื่อความปลอดภัยของรหัสผ่าน
+    const response = await fetch(appState.apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'login',
+        username: username,
+        password: password
+      })
+    });
     const res = await response.json();
 
     if (res.success && res.token) {
       appState.token = res.token;
       appState.user = res.user;
-      localStorage.setItem('saiyok_auth_token', res.token);
-      localStorage.setItem('saiyok_auth_user', JSON.stringify(res.user));
+
+      // บันทึกลงใน sessionStorage พร้อมกำหนดเวลาหมดอายุ 8 ชั่วโมง (หรือเมื่อปิดเบราว์เซอร์)
+      const expireTime = Date.now() + (8 * 60 * 60 * 1000);
+      sessionStorage.setItem('saiyok_auth_token', res.token);
+      sessionStorage.setItem('saiyok_auth_user', JSON.stringify(res.user));
+      sessionStorage.setItem('saiyok_auth_expire', String(expireTime));
 
       Swal.fire({
         icon: 'success',
@@ -343,23 +387,9 @@ async function handleLogin(event) {
       errEl.classList.remove('d-none');
     }
   } catch (err) {
-    console.warn('API error, checking direct fallback...', err);
-    if (username === 'admin11278' && password === 'admin11278') {
-      const fallbackUser = { username: 'admin11278', displayName: 'ผู้ดูแลระบบ รพ.ไทรโยค', role: 'admin' };
-      const fallbackToken = 'local_admin_' + new Date().getTime();
-      appState.token = fallbackToken;
-      appState.user = fallbackUser;
-      localStorage.setItem('saiyok_auth_token', fallbackToken);
-      localStorage.setItem('saiyok_auth_user', JSON.stringify(fallbackUser));
-
-      userEl.value = '';
-      passEl.value = '';
-      showDashboardView();
-      loadSheetData();
-    } else {
-      errEl.textContent = 'ไม่สามารถเชื่อมต่อ API ได้ หรือรหัสผ่านไม่ถูกต้อง';
-      errEl.classList.remove('d-none');
-    }
+    console.error('API login error:', err);
+    errEl.textContent = 'ไม่สามารถเชื่อมต่อ API ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+    errEl.classList.remove('d-none');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-right-to-bracket me-1"></i> เข้าสู่ระบบ';
@@ -369,8 +399,9 @@ async function handleLogin(event) {
 function forceLogout(message) {
   appState.token = '';
   appState.user = null;
-  localStorage.removeItem('saiyok_auth_token');
-  localStorage.removeItem('saiyok_auth_user');
+  sessionStorage.removeItem('saiyok_auth_token');
+  sessionStorage.removeItem('saiyok_auth_user');
+  sessionStorage.removeItem('saiyok_auth_expire');
   showLoginView();
   if (message) {
     Swal.fire({
@@ -428,12 +459,8 @@ async function loadSheetData() {
     appState.allRows = data.rows || [];
     appState.stats = data.stats || {};
 
-    // อัปเดตการแสดงผลทุกส่วน
-    updateKpiCards();
+    // อัปเดตการแสดงผลทุกส่วน (applyFilters จะคำนวณ KPI, กราฟ, สรุปกลุ่ม และเรียก buildPatientSelectList ให้แล้ว)
     applyFilters();
-    renderGroupCharts();
-    renderGroupSummaryTable();
-    buildPatientSelectList();
     renderMatrixTable();
 
   } catch (err) {
@@ -841,15 +868,15 @@ function buildPatientSelectList() {
 
     div.innerHTML = `
       <div class="d-flex align-items-center justify-content-between">
-        <div class="fw-bold text-dark fs-8">${p.ptname}</div>
+        <div class="fw-bold text-dark fs-8">${escHtml(p.ptname)}</div>
         <div>${groupDot}</div>
       </div>
       <div class="d-flex align-items-center gap-2 text-muted fs-9">
-        <span class="font-monospace">${p.hn}</span>
+        <span class="font-monospace">${escHtml(p.hn)}</span>
         <span>&bull;</span>
-        <span>${p.age_y} ปี</span>
+        <span>${escHtml(p.age_y)} ปี</span>
         <span>&bull;</span>
-        <span>สิทธิ ${p.pttype}</span>
+        <span>สิทธิ ${escHtml(p.pttype)}</span>
       </div>
     `;
 
@@ -1014,7 +1041,7 @@ function renderPatientHistoryCharts(hn) {
   } else if (metric === 'lipid') {
     ds1 = [
       { label: 'Cholesterol (<200)', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
-      { label: 'Triglyceride (<203)', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
+      { label: 'Triglyceride (<150)', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
       { label: 'LDL (<100)', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
       { label: 'HDL (>40)', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
     ];
@@ -1086,7 +1113,8 @@ function renderPatientHistoryCharts(hn) {
         }
       });
     } else {
-      // เมื่อเลือกหมวดเฉพาะ แสดงเต็มความกว้างสวยงาม
+      // เมื่อเลือกหมวดเฉพาะ แสดงเต็มความกว้างสวยงาม พร้อมเคลียร์ instance เก่า
+      destroyChart('chartHistoryOrgan');
       ctxOrgan.parentElement.parentElement.style.display = 'none';
       if (ctxLipid && ctxLipid.parentElement && ctxLipid.parentElement.parentElement) {
         ctxLipid.parentElement.parentElement.className = 'col-12';
@@ -1147,9 +1175,9 @@ function renderIndividualLabTable(row) {
 
     tr.innerHTML = `
       <td class="text-center text-muted fs-9">${labCount}</td>
-      <td class="fw-bold">${headerName}</td>
-      <td class="font-monospace fw-semibold ${evalResult.isAbnormal ? 'text-danger fs-7' : 'text-dark'}">${displayVal}</td>
-      <td class="text-secondary fs-8">${refDisplay}</td>
+      <td class="fw-bold">${escHtml(headerName)}</td>
+      <td class="font-monospace fw-semibold ${evalResult.isAbnormal ? 'text-danger fs-7' : 'text-dark'}">${escHtml(displayVal)}</td>
+      <td class="text-secondary fs-8">${escHtml(refDisplay)}</td>
       <td class="text-center">${statusBadge}</td>
     `;
     tbody.appendChild(tr);
@@ -1238,7 +1266,7 @@ function renderMasterTable(rows) {
       <tr>
         <td colspan="12" class="text-center py-5 text-muted">
           <i class="fa-solid fa-magnifying-glass fa-2x mb-2 text-secondary opacity-50"></i>
-          <div>ไม่พบรายชื่อเจ้าหน้าที่ที่ตรงกับคำค้นหา "${searchQuery}"</div>
+          <div>ไม่พบรายชื่อเจ้าหน้าที่ที่ตรงกับคำค้นหา "${escHtml(searchQuery)}"</div>
         </td>
       </tr>
     `;
@@ -1252,36 +1280,45 @@ function renderMasterTable(rows) {
       else if (r.group_cl === 'ป่วย') groupBadge = '<span class="badge-group sick"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>';
 
       const pttypeClass = r.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
-      const adviceText = r.advice_cj ? r.advice_cj : '<span class="text-muted fst-italic">-</span>';
-      const diagText = r.all_diag_desc || r.pmh || '-';
+      const adviceText = r.advice_cj ? escHtml(r.advice_cj) : '<span class="text-muted fst-italic">-</span>';
+      const diagText = escHtml(r.all_diag_desc || r.pmh || '-');
+      const safeHn = escHtml(r.hn || '');
+      const safePtname = escHtml(r.ptname || '');
 
       tr.innerHTML = `
         <td class="text-center text-muted fs-9">${startIndex + idx + 1}</td>
-        <td>${r.vstdate || '-'}</td>
-        <td class="fw-bold font-monospace text-primary">${r.hn || '-'}</td>
-        <td class="fw-bold">${r.ptname || '-'}</td>
-        <td class="text-center">${r.age_y || '-'}</td>
-        <td><span class="badge ${pttypeClass}">${r.pttype}</span></td>
+        <td>${escHtml(r.vstdate || '-')}</td>
+        <td class="fw-bold font-monospace text-primary">${safeHn}</td>
+        <td class="fw-bold">${safePtname}</td>
+        <td class="text-center">${escHtml(r.age_y || '-')}</td>
+        <td><span class="badge ${pttypeClass}">${escHtml(r.pttype || '')}</span></td>
         <td>${groupBadge}</td>
-        <td class="advice-cell" title="${r.advice_cj || ''}">${adviceText}</td>
-        <td class="text-center font-monospace">${r.bmi || '-'}</td>
-        <td class="text-center text-nowrap font-monospace">${r.bp || '-'}</td>
+        <td class="advice-cell" title="${escHtml(r.advice_cj || '')}">${adviceText}</td>
+        <td class="text-center font-monospace">${escHtml(r.bmi || '-')}</td>
+        <td class="text-center text-nowrap font-monospace">${escHtml(r.bp || '-')}</td>
         <td class="text-truncate" style="max-width: 150px;" title="${diagText}">${diagText}</td>
         <td class="text-nowrap text-end">
-          <button class="btn btn-sm btn-outline-info me-1" onclick="switchToIndividualTab('${r.hn}')" title="ดูข้อมูลรายบุคคล & กราฟ 3 ปี">
+          <button class="btn btn-sm btn-outline-info me-1 btn-indiv-view" title="ดูข้อมูลรายบุคคล & กราฟ 3 ปี">
             <i class="fa-solid fa-chart-line"></i>
           </button>
-          <button class="btn btn-sm btn-outline-primary me-1" onclick="openAssessmentModal(${r.rowIndex})" title="ประเมินกลุ่ม CL และคำแนะนำ CJ">
+          <button class="btn btn-sm btn-outline-primary me-1 btn-asm-edit" title="ประเมินกลุ่ม CL และคำแนะนำ CJ">
             <i class="fa-solid fa-pen-to-square"></i> ประเมิน
           </button>
-          <button class="btn btn-sm btn-outline-success me-1" onclick="openPrintAssessment(${r.rowIndex})" title="พิมพ์แบบประเมิน A4">
+          <button class="btn btn-sm btn-outline-success me-1 btn-asm-print" title="พิมพ์แบบประเมิน A4">
             <i class="fa-solid fa-print"></i> พิมพ์
           </button>
-          <button class="btn btn-sm btn-outline-danger" onclick="confirmDeletePatient(${r.rowIndex}, '${r.hn}', '${r.ptname}')" title="ลบข้อมูลเจ้าหน้าที่">
+          <button class="btn btn-sm btn-outline-danger btn-pt-del" title="ลบข้อมูลเจ้าหน้าที่">
             <i class="fa-solid fa-trash-can"></i>
           </button>
         </td>
       `;
+
+      // ผูก Event Listener โดยตรง ป้องกันปัญหา Single quote ในชื่อผู้ป่วยหลุด attribute
+      tr.querySelector('.btn-indiv-view')?.addEventListener('click', () => switchToIndividualTab(r.hn));
+      tr.querySelector('.btn-asm-edit')?.addEventListener('click', () => openAssessmentModal(r.rowIndex));
+      tr.querySelector('.btn-asm-print')?.addEventListener('click', () => openPrintAssessment(r.rowIndex));
+      tr.querySelector('.btn-pt-del')?.addEventListener('click', () => confirmDeletePatient(r.rowIndex, r.hn, r.ptname));
+
       tbody.appendChild(tr);
     });
   }
@@ -1423,7 +1460,7 @@ function renderMatrixTable() {
 
   // 4. แสดงแถวข้อมูลในหน้านั้น (Tbody)
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-5 text-muted">ไม่พบข้อมูลที่ตรงกับคำค้นหา "${searchQuery}"</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-5 text-muted">ไม่พบข้อมูลที่ตรงกับคำค้นหา "${escHtml(searchQuery)}"</td></tr>`;
   } else {
     pageRows.forEach(r => {
       if (!r.rawRow) return;
@@ -1729,7 +1766,7 @@ function openPrintAssessment(rowIndex) {
   const chol = extractLabValue(row, ['cholesterol']);
   const tg = extractLabValue(row, ['triglyceride']);
   const ldl = extractLabValue(row, ['ldl']);
-  setAsmProblem('chkProbLipid', (chol !== null && chol >= 200) || (tg !== null && tg >= 203) || (ldl !== null && ldl >= 100));
+  setAsmProblem('chkProbLipid', (chol !== null && chol >= 200) || (tg !== null && tg >= 150) || (ldl !== null && ldl >= 100));
 
   const uric = extractLabValue(row, ['uric']);
   setAsmProblem('chkProbUric', uric !== null && uric >= 7.0);
@@ -1782,7 +1819,7 @@ function renderPrint19Items(row) {
     { no: '2.8', title: 'การทำงานของไต (Creatinine)', val: extractLabString(row, ['creatinine']) || '-', ref: '0.50 - 1.20 mg/dL', isAbn: false, skipCheck: false },
     { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false, skipCheck: false },
     { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200), skipCheck: false },
-    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 203 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 203), skipCheck: false },
+    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 150 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 150), skipCheck: false },
     { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false, skipCheck: false },
     { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100), skipCheck: false },
     { no: '2.14', title: 'การทำงานของตับ (SGOT)', val: extractLabString(row, ['sgot', 'ast']) || '-', ref: '< 35 U/L', isAbn: false, skipCheck: false },
