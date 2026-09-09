@@ -60,7 +60,7 @@ const STANDARD_LAB_REFS = [
   { key: 'color (ua)', name: 'Color (UA)', normal: 'Yellow', unit: '', check: (v, s) => /yellow|เหลือง|straw/i.test(s) },
   { key: 'appearance (ua)', name: 'Appearance (UA)', normal: 'Clear', unit: '', check: (v, s) => /clear|ใส/i.test(s) },
   { key: 'sp. gr', name: 'Sp. gr', normal: '1.005-1.030', unit: '', check: (v) => v >= 1.005 && v <= 1.030 },
-  { key: 'ph', name: 'pH', normal: '5.0-8.0', unit: '', check: (v) => v >= 5.0 && v <= 8.0 },
+  { key: 'ph (ua)', name: 'pH (UA)', normal: '5.0-8.0', unit: '', check: (v) => v >= 5.0 && v <= 8.0 },
   { key: 'protein (ua)', name: 'Protein (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
   { key: 'glucose (ua)', name: 'Glucose (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
   { key: 'ketones', name: 'Ketones (UA)', normal: 'Negative', unit: '', check: (v, s) => /neg|normal|ปกติ|^-$/i.test(s) },
@@ -104,7 +104,9 @@ const STANDARD_LAB_REFS = [
   { key: 'ast', name: 'AST', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
   { key: 'sgpt', name: 'SGPT (ALT)', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
   { key: 'alt', name: 'ALT', normal: '< 35', unit: 'U/L', check: (v) => v <= 35 },
+  { key: 'alkaline phosphatase', name: 'Alkaline phosphatase', normal: '30-120', unit: 'U/L', check: (v) => v >= 30 && v <= 120 },
   { key: 'alkaline', name: 'Alkaline phosphatase', normal: '30-120', unit: 'U/L', check: (v) => v >= 30 && v <= 120 },
+  { key: 'alp', name: 'Alkaline phosphatase (ALP)', normal: '30-120', unit: 'U/L', check: (v) => v >= 30 && v <= 120 },
   { key: 'total protein', name: 'Total Protein', normal: '6.6-8.3', unit: 'g/dL', check: (v) => v >= 6.6 && v <= 8.3 },
   { key: 'albumin', name: 'Albumin', normal: '3.0-6.0', unit: 'g/dL', check: (v) => v >= 3.0 && v <= 6.0 },
   { key: 'globulin', name: 'Globulin', normal: '1.5-3.0', unit: 'g/dL', check: (v) => v >= 1.5 && v <= 3.0 },
@@ -112,9 +114,13 @@ const STANDARD_LAB_REFS = [
   { key: 'direct bilirubin', name: 'Direct Bilirubin', normal: '0.10-0.30', unit: 'mg/dL', check: (v) => v >= 0.10 && v <= 0.30 },
 
   // Immunology & CXR
-  { key: 'hbsag', name: 'HBsAg', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) },
-  { key: 'anti-hbs', name: 'Anti-HBs', normal: 'Negative/Positive', unit: '', check: () => true },
-  { key: 'anti-hcv', name: 'Anti-HCV', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) },
+  // HBsAg: Negative = ปกติ, Positive = ผิดปกติ
+  { key: 'hbsag', name: 'HBsAg', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) && !/pos|positive|บวก/i.test(s) },
+  // Anti-HBs: Negative = ผิดปกติ, Positive = ปกติ (มีภูมิคุ้มกัน)
+  { key: 'anti-hbs', name: 'Anti-HBs', normal: 'Positive (มีภูมิคุ้มกัน)', unit: '', check: (v, s) => (/pos|positive|บวก/i.test(s) || (v !== null && v >= 10)) && !/neg|negative|ลบ/i.test(s) },
+  // Anti-HCV: Negative = ปกติ, Positive = ผิดปกติ
+  { key: 'anti-hcv', name: 'Anti-HCV', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) && !/pos|positive|บวก/i.test(s) },
+  { key: 'antihcv', name: 'Anti-HCV', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) && !/pos|positive|บวก/i.test(s) },
   { key: 'metamphethamine', name: 'Metamphethamine', normal: 'Negative', unit: '', check: (v, s) => /neg|negative|ลบ/i.test(s) },
   { key: 'cxr', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (v, s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) },
   { key: 'เอกซเรย์', name: 'ผลเอกซเรย์ปอด (CXR)', normal: 'ปกติ (Normal)', unit: '', check: (v, s) => !/abnormal|infiltration|cardiomegaly|ผิดปกติ/i.test(s) }
@@ -122,7 +128,14 @@ const STANDARD_LAB_REFS = [
 
 function getLabReferenceInfo(headerName) {
   if (!headerName) return null;
-  const lower = headerName.toLowerCase();
+  const lower = headerName.toLowerCase().trim();
+
+  // 1. ตรวจสอบกรณีเฉพาะสำหรับ pH ใน UA เพื่อไม่ให้กระทบ phosphatase
+  if (lower === 'ph' || lower.startsWith('ph ') || lower.includes('(ph)') || lower.includes('ph (ua)')) {
+    return { key: 'ph (ua)', name: 'pH (UA)', normal: '5.0-8.0', unit: '', check: (v) => v >= 5.0 && v <= 8.0 };
+  }
+
+  // 2. ค้นหาจาก STANDARD_LAB_REFS โดยเรียงลำดับคีย์ที่ยาวกว่าก่อน (Longest match first)
   for (const ref of STANDARD_LAB_REFS) {
     if (lower.includes(ref.key)) {
       return ref;
@@ -592,6 +605,9 @@ function applyFilters() {
   updateKpiCards(appState.filteredRows);
   renderGroupCharts(appState.filteredRows);
   renderGroupSummaryTable(appState.filteredRows);
+
+  // อัปเดตรายชื่อผู้ตรวจใน Tab 2 (ข้อมูลรายบุคคล) ตามช่วงวันที่ที่เลือก
+  buildPatientSelectList();
 }
 
 function resetFilters() {
@@ -784,17 +800,21 @@ function buildPatientSelectList() {
   const container = document.getElementById('individualPatientList');
   if (!container) return;
 
-  const rows = appState.allRows;
+  // ใช้รายชื่อจากข้อมูลที่ผ่านการกรองช่วงวันที่ (filteredRows) หรือ allRows หากยังไม่กรอง
+  const rows = (appState.filteredRows && appState.filteredRows.length > 0) ? appState.filteredRows : appState.allRows;
   container.innerHTML = '';
 
   if (!rows.length) {
-    container.innerHTML = '<div class="text-center text-muted py-4">ไม่พบรายชื่อเจ้าหน้าที่</div>';
+    container.innerHTML = '<div class="text-center text-muted py-4">ไม่พบรายชื่อเจ้าหน้าที่ในช่วงวันที่นี้</div>';
     return;
   }
 
-  // Group unique HN
+  // Group unique HN โดยเก็บข้อมูลแถวล่าสุดของคนนั้น
   const patientsMap = new Map();
-  rows.forEach(r => {
+  // จัดเรียงตามวันที่ตรวจ vstdate ล่าสุดก่อน
+  const sortedRows = [...rows].sort((a, b) => (b.vstdate || '').localeCompare(a.vstdate || ''));
+
+  sortedRows.forEach(r => {
     if (r.hn && !patientsMap.has(r.hn)) {
       patientsMap.set(r.hn, r);
     }
@@ -802,9 +822,16 @@ function buildPatientSelectList() {
 
   const uniquePatients = Array.from(patientsMap.values());
 
-  uniquePatients.forEach((p, idx) => {
+  // ตรวจสอบว่าผู้ที่ถูกเลือกก่อนหน้ายังอยู่ในรายการไหม ถ้าไม่อยู่ให้เลือกคนแรก
+  let targetHn = appState.selectedPatientHn;
+  if (!targetHn || !uniquePatients.some(p => p.hn === targetHn)) {
+    targetHn = uniquePatients[0] ? uniquePatients[0].hn : null;
+  }
+
+  uniquePatients.forEach((p) => {
     const div = document.createElement('div');
-    div.className = `patient-select-item mb-2 ${idx === 0 ? 'active' : ''}`;
+    const isActive = (p.hn === targetHn);
+    div.className = `patient-select-item mb-2 ${isActive ? 'active' : ''}`;
     div.dataset.hn = p.hn;
 
     let groupDot = '<span class="text-secondary">&bull;</span>';
@@ -835,9 +862,8 @@ function buildPatientSelectList() {
     container.appendChild(div);
   });
 
-  // เลือกคนแรกเป็นค่าเริ่มต้น
-  if (uniquePatients.length > 0) {
-    selectPatient(uniquePatients[0].hn);
+  if (targetHn) {
+    selectPatient(targetHn);
   }
 }
 
@@ -849,10 +875,34 @@ function filterPatientSelectList() {
   });
 }
 
+function hasLabResults(row) {
+  if (!row || !row.rawRow || !appState.headers) return false;
+  for (let c = 18; c < appState.headers.length; c++) {
+    if (c === 87 || c === 89) continue;
+    const val = row.rawRow[c];
+    if (val !== null && val !== undefined && String(val).trim() !== '') {
+      return true;
+    }
+  }
+  return false;
+}
+
 function selectPatient(hn) {
   appState.selectedPatientHn = hn;
-  const row = appState.allRows.find(r => r.hn === hn);
-  if (!row) return;
+
+  // ค้นหา visit ของคนนี้ในช่วงเวลาที่กรองไว้ก่อน หากไม่มีจึงค้นจากประวัติทั้งหมด
+  const activePool = (appState.filteredRows && appState.filteredRows.length > 0) ? appState.filteredRows : appState.allRows;
+  let candidates = activePool.filter(r => r.hn === hn);
+  if (!candidates.length) {
+    candidates = appState.allRows.filter(r => r.hn === hn);
+  }
+  if (!candidates.length) return;
+
+  // เรียงลำดับตาม vstdate ล่าสุดลงมา (descending)
+  candidates.sort((a, b) => (b.vstdate || '').localeCompare(a.vstdate || ''));
+
+  // เลือกการตรวจล่าสุดที่มีผล Lab (หากมี) หรือเลือกการตรวจล่าสุดในรอบนั้น
+  const row = candidates.find(r => hasLabResults(r)) || candidates[0];
 
   appState.selectedRow = row;
 
@@ -1661,9 +1711,8 @@ function openPrintAssessment(rowIndex) {
   // 3. คำแนะนำจากคอลัมน์ CJ
   safeSetText('asmPrintAdvice', row.advice_cj || '-');
 
-  // 4. เครื่องหมายข้อ 3
-  const isAbnormalGeneral = (row.group_cl === 'ป่วย' || row.group_cl === 'เสี่ยง');
-  setAsmGeneral(isAbnormalGeneral ? 'abnormal' : 'normal');
+  // 4. เครื่องหมายข้อ 3: สุขภาพทั่วไปอยู่ในเกณฑ์ (ยังไม่ต้องลงผล เว้นว่างให้แพทย์ตรวจประเมิน)
+  setAsmGeneral(null);
 
   const bmiNum = parseFloat(row.bmi) || 0;
   setAsmProblem('chkProbObese', bmiNum >= 23);
@@ -1716,32 +1765,43 @@ function renderPrint19Items(row) {
   const tbody = document.getElementById('asmTableBody');
   if (!tbody) return;
 
+  const hbsagRaw = extractLabString(row, ['hbsag']);
+  const hbsagIsAbn = /pos|positive|บวก/i.test(hbsagRaw);
+
+  const antihcvRaw = extractLabString(row, ['antihcv', 'anti-hcv']);
+  const antihcvIsAbn = /pos|positive|บวก/i.test(antihcvRaw);
+
   const items = [
-    { no: '2.1', title: 'ดัชนีมวลกาย (BMI)', val: row.bmi || '-', ref: '18.5 - 22.9 kg/m²', isAbn: parseFloat(row.bmi) >= 23 },
-    { no: '2.2', title: 'ความดันโลหิต (BP)', val: row.bp || '-', ref: '< 120/80 mmHg', isAbn: false },
-    { no: '2.3', title: 'ความเข้มข้นเลือด (CBC)', val: extractLabString(row, ['hct', 'hb']) || 'ปกติ', ref: 'Hb: 12-16 g/dL', isAbn: false },
-    { no: '2.4', title: 'เอกซเรย์ปอด (CXR)', val: 'ปกติ (Normal)', ref: 'ปกติ / ไม่พบรอยโรค', isAbn: false },
-    { no: '2.5', title: 'ตรวจปัสสาวะ (UA)', val: 'Prot: Neg, Sugar: Neg', ref: 'Negative', isAbn: false },
-    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Occult: Neg', isAbn: false },
-    { no: '2.7', title: 'น้ำตาลในเลือด (FBS)', val: extractLabString(row, ['fbs', 'blood sugar']) || '-', ref: '70 - 99 mg/dL', isAbn: (parseFloat(extractLabString(row, ['fbs'])) >= 100) },
-    { no: '2.8', title: 'การทำงานของไต (Creatinine)', val: extractLabString(row, ['creatinine']) || '-', ref: '0.50 - 1.20 mg/dL', isAbn: false },
-    { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false },
-    { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200) },
-    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 203 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 203) },
-    { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false },
-    { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100) },
-    { no: '2.14', title: 'การทำงานของตับ (SGOT)', val: extractLabString(row, ['sgot', 'ast']) || '-', ref: '< 35 U/L', isAbn: false },
-    { no: '2.15', title: 'การทำงานของตับ (SGPT)', val: extractLabString(row, ['sgpt', 'alt']) || '-', ref: '< 35 U/L', isAbn: false },
-    { no: '2.16', title: 'เอนไซม์ตับ (ALP)', val: extractLabString(row, ['alk', 'alp']) || '-', ref: '30 - 120 U/L', isAbn: false },
-    { no: '2.17', title: 'กรดยูริก (Uric Acid)', val: extractLabString(row, ['uric']) || '-', ref: '2.3 - 6.1 mg/dL', isAbn: false },
-    { no: '2.18', title: 'ไวรัสตับอักเสบบี (HBsAg)', val: extractLabString(row, ['hbsag']) || 'Negative', ref: 'Negative', isAbn: false },
-    { no: '2.19', title: 'ไวรัสตับอักเสบซี (Anti-HCV)', val: extractLabString(row, ['antihcv', 'anti-hcv']) || 'Negative', ref: 'Negative', isAbn: false }
+    { no: '2.1', title: 'ดัชนีมวลกาย (BMI)', val: row.bmi || '-', ref: '18.5 - 22.9 kg/m²', isAbn: parseFloat(row.bmi) >= 23, skipCheck: false },
+    { no: '2.2', title: 'ความดันโลหิต (BP)', val: row.bp || '-', ref: '< 120/80 mmHg', isAbn: false, skipCheck: false },
+    { no: '2.3', title: 'ความเข้มข้นเลือด (CBC)', val: extractLabString(row, ['hct', 'hb']) || 'ปกติ', ref: 'Hb: 12-16 g/dL', isAbn: false, skipCheck: false },
+    { no: '2.4', title: 'เอกซเรย์ปอด (CXR)', val: '-', ref: 'ปกติ / ไม่พบรอยโรค', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
+    { no: '2.5', title: 'ตรวจปัสสาวะ (UA)', val: '-', ref: 'Negative', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
+    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Occult: Neg', isAbn: false, skipCheck: false },
+    { no: '2.7', title: 'น้ำตาลในเลือด (FBS)', val: extractLabString(row, ['fbs', 'blood sugar']) || '-', ref: '70 - 99 mg/dL', isAbn: (parseFloat(extractLabString(row, ['fbs'])) >= 100), skipCheck: false },
+    { no: '2.8', title: 'การทำงานของไต (Creatinine)', val: extractLabString(row, ['creatinine']) || '-', ref: '0.50 - 1.20 mg/dL', isAbn: false, skipCheck: false },
+    { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false, skipCheck: false },
+    { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200), skipCheck: false },
+    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 203 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 203), skipCheck: false },
+    { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false, skipCheck: false },
+    { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100), skipCheck: false },
+    { no: '2.14', title: 'การทำงานของตับ (SGOT)', val: extractLabString(row, ['sgot', 'ast']) || '-', ref: '< 35 U/L', isAbn: false, skipCheck: false },
+    { no: '2.15', title: 'การทำงานของตับ (SGPT)', val: extractLabString(row, ['sgpt', 'alt']) || '-', ref: '< 35 U/L', isAbn: false, skipCheck: false },
+    { no: '2.16', title: 'เอนไซม์ตับ (ALP)', val: extractLabString(row, ['alk', 'alp']) || '-', ref: '30 - 120 U/L', isAbn: false, skipCheck: false },
+    { no: '2.17', title: 'กรดยูริก (Uric Acid)', val: extractLabString(row, ['uric']) || '-', ref: '2.3 - 6.1 mg/dL', isAbn: false, skipCheck: false },
+    { no: '2.18', title: 'ไวรัสตับอักเสบบี (HBsAg)', val: hbsagRaw || 'Negative', ref: 'Negative', isAbn: hbsagIsAbn, skipCheck: false },
+    { no: '2.19', title: 'ไวรัสตับอักเสบซี (Anti-HCV)', val: antihcvRaw || 'Negative', ref: 'Negative', isAbn: antihcvIsAbn, skipCheck: false }
   ];
 
   tbody.innerHTML = '';
   items.forEach(it => {
-    const normalMark = it.isAbn ? '' : '<span style="color: #15803d; font-size: 15px; font-weight: bold;">✓</span>';
-    const abnormalMark = it.isAbn ? '<span style="color: #dc2626; font-size: 15px; font-weight: bold;">✓</span>' : '';
+    let normalMark = '';
+    let abnormalMark = '';
+
+    if (!it.skipCheck) {
+      normalMark = it.isAbn ? '' : '<span style="color: #15803d; font-size: 15px; font-weight: bold;">✓</span>';
+      abnormalMark = it.isAbn ? '<span style="color: #dc2626; font-size: 15px; font-weight: bold;">✓</span>' : '';
+    }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1772,6 +1832,7 @@ function extractLabString(row, keywords) {
 
 function setAsmGeneral(status) {
   const isNorm = (status === 'normal');
+  const isAbn = (status === 'abnormal');
   const chkNorm = document.getElementById('chkGeneralNormal');
   const chkAbn = document.getElementById('chkGeneralAbnormal');
   
@@ -1781,8 +1842,8 @@ function setAsmGeneral(status) {
     else chkNorm.removeAttribute('checked');
   }
   if (chkAbn) {
-    chkAbn.checked = !isNorm;
-    if (!isNorm) chkAbn.setAttribute('checked', 'checked');
+    chkAbn.checked = isAbn;
+    if (isAbn) chkAbn.setAttribute('checked', 'checked');
     else chkAbn.removeAttribute('checked');
   }
 
@@ -1795,7 +1856,7 @@ function setAsmGeneral(status) {
 
   const mAbn = document.getElementById('mark_chkGeneralAbnormal');
   if (mAbn) {
-    mAbn.innerHTML = !isNorm
+    mAbn.innerHTML = isAbn
       ? '<strong style="font-family: monospace; font-size: 13px;">(&nbsp;<span style="color: #dc2626; font-weight: 900;">✓</span>&nbsp;)</strong>' 
       : '<span style="color: #64748b; font-family: monospace; font-size: 13px;">(&nbsp;&nbsp;&nbsp;)</span>';
   }
