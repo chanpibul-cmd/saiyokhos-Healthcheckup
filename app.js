@@ -1808,24 +1808,44 @@ function renderPrint19Items(row) {
   const antihcvRaw = extractLabString(row, ['antihcv', 'anti-hcv']);
   const antihcvIsAbn = /pos|positive|บวก/i.test(antihcvRaw);
 
+  const hctRaw = extractLabString(row, ['hct (%)', 'hct']);
+  const hctNum = parseFloat(hctRaw);
+  const hctIsAbn = !isNaN(hctNum) ? (hctNum < 35 || hctNum > 50) : false;
+
+  const crRaw = extractLabString(row, ['creatinine']);
+  const crNum = parseFloat(crRaw);
+  const crIsAbn = !isNaN(crNum) ? (crNum < 0.5 || crNum > 1.3) : false;
+
+  const sgotRaw = extractLabString(row, ['sgot', 'ast']);
+  const sgotNum = parseFloat(sgotRaw);
+  const sgotIsAbn = !isNaN(sgotNum) ? (sgotNum >= 35) : false;
+
+  const sgptRaw = extractLabString(row, ['sgpt', 'alt']);
+  const sgptNum = parseFloat(sgptRaw);
+  const sgptIsAbn = !isNaN(sgptNum) ? (sgptNum >= 35) : false;
+
+  const uricRaw = extractLabString(row, ['uric']);
+  const uricNum = parseFloat(uricRaw);
+  const uricIsAbn = !isNaN(uricNum) ? (uricNum < 2.3 || uricNum > 8.2) : false;
+
   const items = [
     { no: '2.1', title: 'ดัชนีมวลกาย (BMI)', val: row.bmi || '-', ref: '18.5 - 22.9 kg/m²', isAbn: parseFloat(row.bmi) >= 23, skipCheck: false },
     { no: '2.2', title: 'ความดันโลหิต (BP)', val: row.bp || '-', ref: '< 120/80 mmHg', isAbn: false, skipCheck: false },
-    { no: '2.3', title: 'ความเข้มข้นเลือด (CBC)', val: extractLabString(row, ['hct', 'hb']) || 'ปกติ', ref: 'Hb: 12-16 g/dL', isAbn: false, skipCheck: false },
+    { no: '2.3', title: 'ความเข้มข้นเลือด (Hct)', val: hctRaw || '-', ref: 'M = 38-50 mg% / F = 35-45 mg%', isAbn: hctIsAbn, skipCheck: false },
     { no: '2.4', title: 'เอกซเรย์ปอด (CXR)', val: '-', ref: 'ปกติ / ไม่พบรอยโรค', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
     { no: '2.5', title: 'ตรวจปัสสาวะ (UA)', val: '-', ref: 'Negative', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
-    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Occult: Neg', isAbn: false, skipCheck: false },
+    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Negative', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
     { no: '2.7', title: 'น้ำตาลในเลือด (FBS)', val: extractLabString(row, ['fbs', 'blood sugar']) || '-', ref: '70 - 99 mg/dL', isAbn: (parseFloat(extractLabString(row, ['fbs'])) >= 100), skipCheck: false },
-    { no: '2.8', title: 'การทำงานของไต (Creatinine)', val: extractLabString(row, ['creatinine']) || '-', ref: '0.50 - 1.20 mg/dL', isAbn: false, skipCheck: false },
+    { no: '2.8', title: 'การทำงานของไต Creatinine (mg/dL)', val: crRaw || '-', ref: 'M 0.8-1.3 / F 0.5-0.9 mg/dL', isAbn: crIsAbn, skipCheck: false },
     { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false, skipCheck: false },
     { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200), skipCheck: false },
     { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 150 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 150), skipCheck: false },
     { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false, skipCheck: false },
     { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100), skipCheck: false },
-    { no: '2.14', title: 'การทำงานของตับ (SGOT)', val: extractLabString(row, ['sgot', 'ast']) || '-', ref: '< 35 U/L', isAbn: false, skipCheck: false },
-    { no: '2.15', title: 'การทำงานของตับ (SGPT)', val: extractLabString(row, ['sgpt', 'alt']) || '-', ref: '< 35 U/L', isAbn: false, skipCheck: false },
+    { no: '2.14', title: 'การทำงานของตับ SGOT (AST) (U/L)', val: sgotRaw || '-', ref: 'M < 35 U/L / F < 31 U/L', isAbn: sgotIsAbn, skipCheck: false },
+    { no: '2.15', title: 'การทำงานของตับ SGPT (ALT) (U/L)', val: sgptRaw || '-', ref: 'M < 35 U/L / F < 31 U/L', isAbn: sgptIsAbn, skipCheck: false },
     { no: '2.16', title: 'เอนไซม์ตับ (ALP)', val: extractLabString(row, ['alk', 'alp']) || '-', ref: '30 - 120 U/L', isAbn: false, skipCheck: false },
-    { no: '2.17', title: 'กรดยูริก (Uric Acid)', val: extractLabString(row, ['uric']) || '-', ref: '2.3 - 6.1 mg/dL', isAbn: false, skipCheck: false },
+    { no: '2.17', title: 'กรดยูริก Uric acid (mg/dL)', val: uricRaw || '-', ref: 'M 3.6-8.2 / F 2.3-6.1 mg/dL', isAbn: uricIsAbn, skipCheck: false },
     { no: '2.18', title: 'ไวรัสตับอักเสบบี (HBsAg)', val: hbsagRaw || 'Negative', ref: 'Negative', isAbn: hbsagIsAbn, skipCheck: false },
     { no: '2.19', title: 'ไวรัสตับอักเสบซี (Anti-HCV)', val: antihcvRaw || 'Negative', ref: 'Negative', isAbn: antihcvIsAbn, skipCheck: false }
   ];
@@ -1836,19 +1856,17 @@ function renderPrint19Items(row) {
     let abnormalMark = '';
 
     if (!it.skipCheck) {
-      normalMark = it.isAbn ? '' : '<span style="color: #15803d; font-size: 15px; font-weight: bold;">✓</span>';
-      abnormalMark = it.isAbn ? '<span style="color: #dc2626; font-size: 15px; font-weight: bold;">✓</span>' : '';
+      normalMark = it.isAbn ? '' : '<span style="color: #15803d; font-size: 14px; font-weight: bold;">✓</span>';
+      abnormalMark = it.isAbn ? '<span style="color: #dc2626; font-size: 14px; font-weight: bold;">✓</span>' : '';
     }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="padding-left: 8px;"><strong>${it.no} ${it.title}</strong></td>
+      <td style="padding-left: 8px; color: #333333; font-size: 10.5px;">${it.ref}</td>
+      <td style="text-align: center; font-weight: 600; font-family: monospace; font-size: 11px; ${it.isAbn ? 'color: #dc2626; font-weight: bold;' : 'color: #000000;'}">${it.val}</td>
       <td class="check-cell">${normalMark}</td>
       <td class="check-cell">${abnormalMark}</td>
-      <td class="ref-cell" style="padding-left: 8px;">
-        <div><strong>ผลตรวจ:</strong> <span style="${it.isAbn ? 'color: #dc2626; font-weight: bold;' : 'font-weight: 600;'}">${it.val}</span></div>
-        <div style="color: #64748b; font-size: 10px;">(เกณฑ์: ${it.ref})</div>
-      </td>
     `;
     tbody.appendChild(tr);
   });
