@@ -481,12 +481,13 @@ function updateKpiCards(targetRows) {
   const rows = targetRows || appState.filteredRows || appState.allRows;
   const total = rows.length;
 
-  let count80 = 0, count81 = 0;
+  let count80 = 0, count81 = 0, count85 = 0;
   let countNormal = 0, countRisk = 0, countSick = 0;
 
   rows.forEach(r => {
     if (r.pttype === '80') count80++;
     else if (r.pttype === '81') count81++;
+    else if (r.pttype === '85') count85++;
 
     if (r.group_cl === 'ปกติ') countNormal++;
     else if (r.group_cl === 'เสี่ยง') countRisk++;
@@ -499,6 +500,9 @@ function updateKpiCards(targetRows) {
 
   safeSetText('kpiPttype81', count81.toLocaleString());
   safeSetText('kpiPttype81Pct', total > 0 ? `${((count81/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%');
+
+  safeSetText('kpiPttype85', count85.toLocaleString());
+  safeSetText('kpiPttype85Pct', total > 0 ? `${((count85/total)*100).toFixed(1)}% ของผู้ตรวจ` : '0%');
 
   safeSetText('kpiGroupNormal', countNormal.toLocaleString());
   safeSetText('kpiGroupNormalPct', total > 0 ? `${((countNormal/total)*100).toFixed(1)}%` : '0%');
@@ -684,10 +688,11 @@ function renderGroupCharts(targetRows) {
   }
 
   // 1. Pttype Donut
-  let p80 = 0, p81 = 0, pOther = 0;
+  let p80 = 0, p81 = 0, p85 = 0, pOther = 0;
   rows.forEach(r => {
     if (r.pttype === '80') p80++;
     else if (r.pttype === '81') p81++;
+    else if (r.pttype === '85') p85++;
     else pOther++;
   });
 
@@ -697,10 +702,10 @@ function renderGroupCharts(targetRows) {
     appState.charts['chartPttype'] = new Chart(ctxPttype, {
       type: 'doughnut',
       data: {
-        labels: ['สิทธิ 80 (จนท.รพ.ไทรโยค)', 'สิทธิ 81 ประกันสังคม', 'สิทธิอื่นๆ'],
+        labels: ['สิทธิ 80 (จนท.รพ.ไทรโยค)', 'สิทธิ 81 ประกันสังคม', 'สิทธิ 85 (สิทธิ์ UC)', 'สิทธิอื่นๆ'],
         datasets: [{
-          data: [p80, p81, pOther],
-          backgroundColor: ['#0284c7', '#f59e0b', '#94a3b8'],
+          data: [p80, p81, p85, pOther],
+          backgroundColor: ['#0284c7', '#f59e0b', '#a855f7', '#94a3b8'],
           borderWidth: 2
         }]
       },
@@ -784,11 +789,13 @@ function renderGroupSummaryTable(targetRows) {
   const rows = targetRows || appState.filteredRows || appState.allRows;
   const groups = {
     '80': { name: 'สิทธิ 80 (80ตรวจสุขภาพประจำปี (จนท.รพ.ไทรโยค))', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 },
-    '81': { name: 'สิทธิ 81 (ประกันสังคม)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 }
+    '81': { name: 'สิทธิ 81 (ประกันสังคม)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 },
+    '85': { name: 'สิทธิ 85 (สิทธิ์ UC จนท.รพ.ไทรโยค)', a1: 0, a2: 0, a3: 0, a4: 0, a5: 0, total: 0, sick: 0 }
   };
 
   rows.forEach(r => {
-    const pt = r.pttype === '80' ? '80' : '81';
+    const pt = r.pttype === '80' ? '80' : (r.pttype === '85' ? '85' : (r.pttype === '81' ? '81' : null));
+    if (!pt || !groups[pt]) return;
     const g = groups[pt];
     const age = parseInt(r.age_y, 10) || 0;
 
@@ -803,7 +810,7 @@ function renderGroupSummaryTable(targetRows) {
   });
 
   tbody.innerHTML = '';
-  ['80', '81'].forEach(k => {
+  ['80', '81', '85'].forEach(k => {
     const g = groups[k];
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -944,7 +951,7 @@ function selectPatient(hn) {
   safeSetText('indivAdvice', row.advice_cj || 'ยังไม่มีคำแนะนำ');
 
   // Badges
-  const pttypeClass = row.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
+  const pttypeClass = row.pttype === '80' ? 'badge-pttype-80' : (row.pttype === '85' ? 'badge-pttype-85' : 'badge-pttype-81');
   safeSetHtml('indivPttypeBadge', `<span class="badge ${pttypeClass}">${row.pttype} ${row.pttype_name || ''}</span>`);
 
   let gBadge = '<span class="badge-group unassessed">ยังไม่ประเมิน</span>';
@@ -1279,7 +1286,7 @@ function renderMasterTable(rows) {
       else if (r.group_cl === 'เสี่ยง') groupBadge = '<span class="badge-group risk"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยง</span>';
       else if (r.group_cl === 'ป่วย') groupBadge = '<span class="badge-group sick"><i class="fa-solid fa-circle-xmark"></i> ป่วย</span>';
 
-      const pttypeClass = r.pttype === '80' ? 'badge-pttype-80' : 'badge-pttype-81';
+      const pttypeClass = r.pttype === '80' ? 'badge-pttype-80' : (r.pttype === '85' ? 'badge-pttype-85' : 'badge-pttype-81');
       const adviceText = r.advice_cj ? escHtml(r.advice_cj) : '<span class="text-muted fst-italic">-</span>';
       const diagText = escHtml(r.all_diag_desc || r.pmh || '-');
       const safeHn = escHtml(r.hn || '');
