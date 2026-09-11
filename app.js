@@ -787,13 +787,25 @@ function renderGroupCharts(targetRows) {
   }
 
   // 4. NCD Disease Dashboard (DM, DLP, CKD)
-  renderDiseaseDashboard(rows);
+  try {
+    renderDiseaseDashboard(rows);
+  } catch (err) {
+    console.error('Error rendering Disease Dashboard:', err);
+  }
 
   // 5. BMI Distribution
-  renderBmiDistribution(rows);
+  try {
+    renderBmiDistribution(rows);
+  } catch (err) {
+    console.error('Error rendering BMI Distribution:', err);
+  }
 
   // 6. Lab Abnormalities Summary
-  renderLabAbnormalitiesSummary(rows);
+  try {
+    renderLabAbnormalitiesSummary(rows);
+  } catch (err) {
+    console.error('Error rendering Lab Abnormalities Summary:', err);
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -1027,7 +1039,8 @@ function renderLabAbnormalitiesSummary(targetRows) {
         unit: refInfo.unit || '',
         tested: 0,
         abnormal: 0,
-        colIndices: [c]
+        colIndices: [c],
+        refInfo: refInfo
       });
     } else {
       labStatsMap.get(key).colIndices.push(c);
@@ -1049,8 +1062,7 @@ function renderLabAbnormalitiesSummary(targetRows) {
 
       if (val !== null && val !== undefined && String(val).trim() !== '') {
         stat.tested++;
-        const refInfo = getLabReferenceInfo(stat.name);
-        const evalRes = evaluateLabStatus(val, refInfo);
+        const evalRes = evaluateLabStatus(val, stat.refInfo);
         if (evalRes.isAbnormal) {
           stat.abnormal++;
         }
