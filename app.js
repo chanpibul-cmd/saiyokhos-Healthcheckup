@@ -1308,7 +1308,7 @@ function renderMasterTable(rows) {
           <button class="btn btn-sm btn-outline-info me-1 btn-indiv-view" title="ดูข้อมูลรายบุคคล & กราฟ 3 ปี">
             <i class="fa-solid fa-chart-line"></i>
           </button>
-          <button class="btn btn-sm btn-outline-primary me-1 btn-asm-edit" title="ประเมินกลุ่ม CL และคำแนะนำ CJ">
+          <button class="btn btn-sm btn-outline-primary me-1 btn-asm-edit" title="ประเมินกลุ่มสุขภาพ และคำแนะนำ">
             <i class="fa-solid fa-pen-to-square"></i> ประเมิน
           </button>
           <button class="btn btn-sm btn-outline-success me-1 btn-asm-print" title="พิมพ์แบบประเมิน A4">
@@ -1747,7 +1747,7 @@ function openPrintAssessment(rowIndex) {
   safeSetText('asmChronic', '-');
   safeSetText('asmBw', row.bw || '-');
   safeSetText('asmHeight', row.height || '-');
-  safeSetText('asmPttype', `สิทธิ ${row.pttype} (${row.pttype_name || ''})`);
+  safeSetText('asmPttype', row.pttype || '-');
 
   // 2. ตาราง 19 รายการตรวจ
   renderPrint19Items(row);
@@ -2086,8 +2086,8 @@ function exportTableToExcel() {
     'อายุ (ปี)': r.age_y || '',
     'รหัสสิทธิ': r.pttype || '',
     'ชื่อสิทธิ': r.pttype_name || '',
-    'กลุ่มสุขภาพ (CL)': r.group_cl || 'ยังไม่ประเมิน',
-    'คำแนะนำ (CJ)': r.advice_cj || '',
+    'กลุ่มสุขภาพ': r.group_cl || 'ยังไม่ประเมิน',
+    'คำแนะนำ': r.advice_cj || '',
     'BMI': r.bmi || '',
     'ความดัน': r.bp || '',
     'ชีพจร': r.pulse || '',

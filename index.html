@@ -39,7 +39,7 @@
             <span class="badge bg-warning text-dark fs-8 fw-normal">รพ.ไทรโยค</span>
           </h5>
           <small class="text-white-50 fs-8">
-            สิทธิ 80, 81 | กลุ่ม CL (ปกติ, เสี่ยง, ป่วย) | คำแนะนำ CJ | กราฟ 3 ปี | GitHub Pages
+            สิทธิ 80, 81, 85 | รวม LAB | กราฟ 3 ปี
           </small>
         </div>
       </div>
@@ -155,10 +155,10 @@
         </div>
         <div class="col-12 col-md-2">
           <label class="form-label fw-bold text-secondary fs-8 mb-1">
-            <i class="fa-solid fa-layer-group text-primary me-1"></i> กลุ่มสุขภาพ (CL):
+            <i class="fa-solid fa-layer-group text-primary me-1"></i> กลุ่มสุขภาพ:
           </label>
           <select id="filterGroup" class="form-select form-select-sm">
-            <option value="all">ทุกกลุ่มสุขภาพ (CL)</option>
+            <option value="all">ทุกกลุ่มสุขภาพ</option>
             <option value="ปกติ">กลุ่มปกติ (เขียว)</option>
             <option value="เสี่ยง">กลุ่มเสี่ยง (เหลือง/ส้ม)</option>
             <option value="ป่วย">กลุ่มป่วย (แดง)</option>
@@ -250,7 +250,7 @@
             <i class="fa-solid fa-circle-check"></i>
           </div>
           <div>
-            <div class="text-success fs-9 fw-semibold">กลุ่มปกติ (CL)</div>
+            <div class="text-success fs-9 fw-semibold">กลุ่มปกติ</div>
             <div class="fs-4 fw-bold text-success font-monospace" id="kpiGroupNormal">0</div>
             <small class="text-muted fs-9" id="kpiGroupNormalPct">0%</small>
           </div>
@@ -264,7 +264,7 @@
             <i class="fa-solid fa-triangle-exclamation"></i>
           </div>
           <div>
-            <div class="text-warning fs-9 fw-semibold">กลุ่มเสี่ยง (CL)</div>
+            <div class="text-warning fs-9 fw-semibold">กลุ่มเสี่ยง</div>
             <div class="fs-4 fw-bold text-warning font-monospace" id="kpiGroupRisk">0</div>
             <small class="text-muted fs-9" id="kpiGroupRiskPct">0%</small>
           </div>
@@ -278,7 +278,7 @@
             <i class="fa-solid fa-circle-xmark"></i>
           </div>
           <div>
-            <div class="text-danger fs-9 fw-semibold">กลุ่มป่วย (CL)</div>
+            <div class="text-danger fs-9 fw-semibold">กลุ่มป่วย</div>
             <div class="fs-4 fw-bold text-danger font-monospace" id="kpiGroupSick">0</div>
             <small class="text-muted fs-9" id="kpiGroupSickPct">0%</small>
           </div>
@@ -354,7 +354,7 @@
           <div class="col-12 col-lg-4">
             <div class="data-card h-100">
               <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                <i class="fa-solid fa-heart-pulse text-success"></i> สัดส่วนกลุ่มสุขภาพ (คอลัมน์ CL)
+                <i class="fa-solid fa-heart-pulse text-success"></i> สัดส่วนกลุ่มสุขภาพ
               </h6>
               <div style="height: 240px; position: relative;">
                 <canvas id="chartGroup"></canvas>
@@ -463,11 +463,11 @@
                   <span class="fw-bold fs-7" id="indivBp">-</span>
                 </div>
                 <div class="col-6 col-md-3">
-                  <span class="text-muted d-block">กลุ่มสุขภาพ (CL):</span>
+                  <span class="text-muted d-block">กลุ่มสุขภาพ:</span>
                   <span id="indivGroupBadge">-</span>
                 </div>
                 <div class="col-6 col-md-3">
-                  <span class="text-muted d-block">คำแนะนำ (CJ):</span>
+                  <span class="text-muted d-block">คำแนะนำ:</span>
                   <span class="fw-bold text-truncate d-block" id="indivAdvice">-</span>
                 </div>
                 <div class="col-12 mt-2">
@@ -559,7 +559,7 @@
               <h6 class="fw-bold mb-1 d-flex align-items-center gap-2">
                 <i class="fa-solid fa-list-check text-success"></i> รายชื่อเจ้าหน้าที่และผลการประเมิน
               </h6>
-              <small class="text-muted fs-8">ผลการตรวจสุขภาพรายบุคคล พร้อมระบบประเมินกลุ่มสุขภาพ (CL) และคำแนะนำ (CJ)</small>
+              <small class="text-muted fs-8">ผลการตรวจสุขภาพรายบุคคล พร้อมระบบประเมินกลุ่มสุขภาพ และคำแนะนำ</small>
             </div>
             <span class="badge bg-light text-secondary border fs-8" id="masterRowCount">0 รายการ</span>
           </div>
@@ -599,8 +599,8 @@
                   <th>ชื่อ-นามสกุล</th>
                   <th class="text-center">อายุ</th>
                   <th>สิทธิ</th>
-                  <th>กลุ่มสุขภาพ (CL)</th>
-                  <th style="min-width: 170px;">คำแนะนำ (CJ)</th>
+                  <th>กลุ่มสุขภาพ</th>
+                  <th style="min-width: 170px;">คำแนะนำ</th>
                   <th class="text-center">BMI</th>
                   <th class="text-center">ความดัน</th>
                   <th>การวินิจฉัย / โรคประจำตัว</th>
@@ -712,7 +712,7 @@
         <div class="modal-header navbar-custom text-white py-3">
           <h5 class="modal-title font-heading fs-6 d-flex align-items-center gap-2">
             <i class="fa-solid fa-user-doctor"></i>
-            <span>ประเมินผลสุขภาพเจ้าหน้าที่ (บันทึกกลุ่ม CL และคำแนะนำ CJ)</span>
+            <span>ประเมินผลสุขภาพเจ้าหน้าที่ (บันทึกกลุ่มสุขภาพ และคำแนะนำ)</span>
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
@@ -733,10 +733,10 @@
           </div>
 
           <form id="formAssessmentEdit" onsubmit="event.preventDefault(); saveAssessmentChanges();">
-            <!-- 1. การเลือกกลุ่ม (คอลัมน์ CL) -->
+            <!-- 1. การเลือกกลุ่ม -->
             <div class="mb-3">
               <label class="form-label fw-bold text-dark fs-7 d-flex align-items-center gap-1">
-                <span>1. จัดกลุ่มสุขภาพเจ้าหน้าที่ (คอลัมน์ CL)</span>
+                <span>1. จัดกลุ่มสุขภาพเจ้าหน้าที่</span>
                 <span class="text-danger">*</span>
               </label>
               <div class="row g-2">
@@ -764,11 +764,11 @@
               </div>
             </div>
 
-            <!-- 2. คำแนะนำ / ข้อควรปฏิบัติ (คอลัมน์ CJ) -->
+            <!-- 2. คำแนะนำ / ข้อควรปฏิบัติ -->
             <div class="mb-3">
-              <label class="form-label fw-bold text-dark fs-7">2. คำแนะนำ / ข้อควรปฏิบัติสำหรับเจ้าหน้าที่ (คอลัมน์ CJ)</label>
+              <label class="form-label fw-bold text-dark fs-7">2. คำแนะนำ / ข้อควรปฏิบัติสำหรับเจ้าหน้าที่</label>
               <textarea class="form-control" id="modalAdviceText" rows="3" placeholder="ระบุคำแนะนำด้านสุขภาพ การปรับพฤติกรรม อาหาร หรือการนัดหมายติดตามผล..."></textarea>
-              <div class="form-text fs-9">ข้อมูลนี้จะถูกบันทึกลงในคอลัมน์ CJ ของ Google Sheets โดยตรง</div>
+              <div class="form-text fs-9">ข้อมูลนี้จะถูกบันทึกลงใน Google Sheets โดยตรง</div>
             </div>
 
             <div class="modal-footer px-0 pb-0 pt-3 border-top">
@@ -803,7 +803,7 @@
             <!-- Header -->
             <div class="text-center mb-3">
               <h4 class="mb-1 text-dark">แบบประเมินผลการตรวจสุขภาพประจำปีโรงพยาบาลไทรโยค</h4>
-              <div class="text-muted fs-8">งานตรวจสุขภาพ กลุ่มงานบริการด้านปฐมภูมิและองค์รวม โรงพยาบาลไทรโยค</div>
+              <div class="text-muted fs-8">งานป้องกันและควบคุมการติดเชื้อในโรงพยาบาล</div>
             </div>
 
             <!-- 1. ข้อมูลส่วนบุคคล -->
