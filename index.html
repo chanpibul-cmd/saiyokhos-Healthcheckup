@@ -367,6 +367,224 @@
               </div>
             </div>
           </div>
+        <!-- NCD Disease Dashboard (DM, DLP, CKD) -->
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+            <h6 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+              <i class="fa-solid fa-notes-medical text-danger"></i> ภาวะสุขภาพรายกลุ่มโรคสำคัญ (NCDs Screening Dashboard)
+            </h6>
+          </div>
+          <!-- Card 1: DM -->
+          <div class="col-12 col-md-4">
+            <div class="data-card h-100 border-start border-4 border-danger shadow-sm">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <span class="badge bg-danger bg-opacity-10 text-danger fw-bold fs-8 mb-1">
+                    <i class="fa-solid fa-droplet me-1"></i> เบาหวาน (DM)
+                  </span>
+                  <div class="fs-4 fw-bold text-dark font-monospace" id="ncdDmTotal">0 <small class="fs-8 fw-normal text-muted">คน</small></div>
+                </div>
+                <div class="text-end">
+                  <div class="fs-5 fw-bold text-danger font-monospace" id="ncdDmPct">0%</div>
+                  <span class="badge" id="ncdDmTrendBadge">-</span>
+                </div>
+              </div>
+              <div class="border-top pt-2 mt-2 fs-8 text-secondary">
+                <div class="d-flex justify-content-between mb-1">
+                  <span><i class="fa-solid fa-circle text-danger fs-9 me-1"></i> กลุ่มป่วย (FBS &ge; 126 / มีประวัติ):</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdDmSick">0 คน</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span><i class="fa-solid fa-circle text-warning fs-9 me-1"></i> กลุ่มเสี่ยง (FBS 100-125 mg/dL):</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdDmRisk">0 คน</span>
+                </div>
+                <div class="text-muted fs-9 mt-2 fst-italic" id="ncdDmDesc">-</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: DLP -->
+          <div class="col-12 col-md-4">
+            <div class="data-card h-100 border-start border-4 border-warning shadow-sm">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <span class="badge fw-bold fs-8 mb-1" style="color: #b45309; background-color: #fef3c7;">
+                    <i class="fa-solid fa-heart-pulse me-1"></i> ไขมันในเลือดสูง (DLP)
+                  </span>
+                  <div class="fs-4 fw-bold text-dark font-monospace" id="ncdDlpTotal">0 <small class="fs-8 fw-normal text-muted">คน</small></div>
+                </div>
+                <div class="text-end">
+                  <div class="fs-5 fw-bold text-warning font-monospace" id="ncdDlpPct">0%</div>
+                  <span class="badge" id="ncdDlpTrendBadge">-</span>
+                </div>
+              </div>
+              <div class="border-top pt-2 mt-2 fs-8 text-secondary">
+                <div class="d-flex justify-content-between mb-1">
+                  <span>Chol &ge; 200 mg/dL:</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdDlpChol">0 คน</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span>Triglyceride &ge; 150 mg/dL:</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdDlpTg">0 คน</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span>LDL &ge; 100 mg/dL:</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdDlpLdl">0 คน</span>
+                </div>
+                <div class="text-muted fs-9 mt-2 fst-italic" id="ncdDlpDesc">-</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: CKD -->
+          <div class="col-12 col-md-4">
+            <div class="data-card h-100 border-start border-4 border-info shadow-sm">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <span class="badge bg-info bg-opacity-10 text-info fw-bold fs-8 mb-1">
+                    <i class="fa-solid fa-shield-virus me-1"></i> การทำงานของไตผิดปกติ (CKD)
+                  </span>
+                  <div class="fs-4 fw-bold text-dark font-monospace" id="ncdCkdTotal">0 <small class="fs-8 fw-normal text-muted">คน</small></div>
+                </div>
+                <div class="text-end">
+                  <div class="fs-5 fw-bold text-info font-monospace" id="ncdCkdPct">0%</div>
+                  <span class="badge" id="ncdCkdTrendBadge">-</span>
+                </div>
+              </div>
+              <div class="border-top pt-2 mt-2 fs-8 text-secondary">
+                <div class="d-flex justify-content-between mb-1">
+                  <span>eGFR &lt; 60 mL/min (ไตเสื่อม Stage 3+):</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdCkdEgfr">0 คน</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span>Creatinine สูงเกินเกณฑ์:</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdCkdCr">0 คน</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span>BUN &gt; 21 mg/dL / โปรตีนรั่ว:</span>
+                  <span class="fw-bold font-monospace text-dark" id="ncdCkdBun">0 คน</span>
+                </div>
+                <div class="text-muted fs-9 mt-2 fst-italic" id="ncdCkdDesc">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BMI Distribution Dashboard -->
+        <div class="data-card mb-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
+              <i class="fa-solid fa-weight-scale text-primary"></i> สรุปการกระจายตัวของดัชนีมวลกาย (BMI Distribution - เกณฑ์มาตรฐานเอเชีย)
+            </h6>
+            <div class="fs-8 text-muted">
+              ภาวะน้ำหนักเกินและอ้วนรวมกัน: <span class="badge bg-danger fs-8 font-monospace" id="bmiOverweightTotalPct">0%</span>
+            </div>
+          </div>
+
+          <div class="row g-3 align-items-center">
+            <div class="col-12 col-lg-5">
+              <div style="height: 220px; position: relative;">
+                <canvas id="chartBmi"></canvas>
+              </div>
+            </div>
+            <div class="col-12 col-lg-7">
+              <div class="row g-2">
+                <!-- Underweight -->
+                <div class="col-6 col-sm">
+                  <div class="p-2 border rounded-3 text-center bg-light h-100">
+                    <div class="fs-9 text-muted fw-semibold">ผอม / ต่ำเกณฑ์</div>
+                    <div class="badge bg-info bg-opacity-25 text-info-emphasis fs-9 my-1">&lt; 18.5</div>
+                    <div class="fs-5 fw-bold text-info font-monospace" id="bmiCountUnder">0</div>
+                    <div class="fs-9 text-muted" id="bmiPctUnder">0%</div>
+                  </div>
+                </div>
+                <!-- Normal -->
+                <div class="col-6 col-sm">
+                  <div class="p-2 border rounded-3 text-center bg-light border-success border-opacity-50 h-100">
+                    <div class="fs-9 text-success fw-semibold">สมส่วน / ปกติ</div>
+                    <div class="badge bg-success bg-opacity-25 text-success fs-9 my-1">18.5-22.9</div>
+                    <div class="fs-5 fw-bold text-success font-monospace" id="bmiCountNormal">0</div>
+                    <div class="fs-9 text-muted" id="bmiPctNormal">0%</div>
+                  </div>
+                </div>
+                <!-- Overweight -->
+                <div class="col-6 col-sm">
+                  <div class="p-2 border rounded-3 text-center bg-light border-warning border-opacity-50 h-100">
+                    <div class="fs-9 text-warning fw-semibold">ท้วม / เริ่มเกิน</div>
+                    <div class="badge bg-warning bg-opacity-25 text-warning-emphasis fs-9 my-1">23.0-24.9</div>
+                    <div class="fs-5 fw-bold text-warning font-monospace" id="bmiCountOver">0</div>
+                    <div class="fs-9 text-muted" id="bmiPctOver">0%</div>
+                  </div>
+                </div>
+                <!-- Obese 1 -->
+                <div class="col-6 col-sm">
+                  <div class="p-2 border rounded-3 text-center bg-light border-danger border-opacity-25 h-100">
+                    <div class="fs-9 text-danger fw-semibold">อ้วนระดับ 1</div>
+                    <div class="badge bg-danger bg-opacity-10 text-danger fs-9 my-1">25.0-29.9</div>
+                    <div class="fs-5 fw-bold text-danger font-monospace" id="bmiCountObese1">0</div>
+                    <div class="fs-9 text-muted" id="bmiPctObese1">0%</div>
+                  </div>
+                </div>
+                <!-- Obese 2 -->
+                <div class="col-12 col-sm">
+                  <div class="p-2 border rounded-3 text-center bg-light border-danger h-100">
+                    <div class="fs-9 text-danger fw-bold">อ้วนระดับ 2</div>
+                    <div class="badge bg-danger text-white fs-9 my-1">&ge; 30.0</div>
+                    <div class="fs-5 fw-bold text-danger font-monospace" id="bmiCountObese2">0</div>
+                    <div class="fs-9 text-muted" id="bmiPctObese2">0%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lab Abnormalities Breakdown Dashboard -->
+        <div class="data-card mb-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
+              <i class="fa-solid fa-flask-vial text-primary"></i> สรุปความผิดปกติรายผลตรวจทางห้องปฏิบัติการ (Lab Abnormalities & Trend)
+            </h6>
+            <div class="fs-8 text-muted">
+              ตรวจพบผิดปกติสูงสุด: <span class="badge bg-danger fs-8" id="topAbnormalLabName">-</span>
+            </div>
+          </div>
+
+          <div class="row g-4 mb-2">
+            <!-- Chart: Top 10 Abnormal Labs (%) -->
+            <div class="col-12 col-lg-5">
+              <div class="p-3 bg-light rounded-3 border h-100">
+                <div class="fw-bold text-secondary fs-8 mb-2 d-flex align-items-center gap-1">
+                  <i class="fa-solid fa-chart-column text-danger"></i> Top 10 รายการตรวจที่พบผิดปกติสูงสุด (%)
+                </div>
+                <div style="height: 320px; position: relative;">
+                  <canvas id="chartTopAbnormalLabs"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Table of Lab Abnormalities -->
+            <div class="col-12 col-lg-7">
+              <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+                <table class="table table-sm table-hover table-bordered mb-0 fs-8 align-middle">
+                  <thead class="table-light sticky-top">
+                    <tr>
+                      <th>รายการตรวจ</th>
+                      <th class="text-center" style="width: 70px;">ตรวจแล้ว</th>
+                      <th class="text-center" style="width: 70px;">ผิดปกติ</th>
+                      <th style="width: 140px;">อัตราผิดปกติ (%)</th>
+                      <th class="text-center" style="width: 100px;">แนวโน้ม</th>
+                    </tr>
+                  </thead>
+                  <tbody id="labAbnormalitiesTableBody">
+                    <tr>
+                      <td colspan="5" class="text-center text-muted py-4">กำลังประมวลผลข้อมูล Lab...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Group Summary Table Breakdown -->

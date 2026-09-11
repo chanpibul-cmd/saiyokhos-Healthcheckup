@@ -684,6 +684,11 @@ function renderGroupCharts(targetRows) {
     destroyChart('chartPttype');
     destroyChart('chartAge');
     destroyChart('chartGroup');
+    destroyChart('chartBmi');
+    destroyChart('chartTopAbnormalLabs');
+    renderDiseaseDashboard([]);
+    renderBmiDistribution([]);
+    renderLabAbnormalitiesSummary([]);
     return;
   }
 
@@ -777,6 +782,390 @@ function renderGroupCharts(targetRows) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  // 4. NCD Disease Dashboard (DM, DLP, CKD)
+  renderDiseaseDashboard(rows);
+
+  // 5. BMI Distribution
+  renderBmiDistribution(rows);
+
+  // 6. Lab Abnormalities Summary
+  renderLabAbnormalitiesSummary(rows);
+}
+
+// -------------------------------------------------------------------------
+// 5.1 Dashboard รายกลุ่มโรค (DM, DLP, CKD)
+// -------------------------------------------------------------------------
+function renderDiseaseDashboard(targetRows) {
+  const rows = targetRows || appState.filteredRows || appState.allRows;
+  const total = rows ? rows.length : 0;
+
+  let dmSick = 0, dmRisk = 0;
+  let dlpCount = 0, dlpChol = 0, dlpTg = 0, dlpLdl = 0;
+  let ckdCount = 0, ckdEgfr = 0, ckdCr = 0, ckdBun = 0;
+
+  if (rows && rows.length > 0) {
+    rows.forEach(r => {
+      const diagStr = ((r.all_diag_desc || '') + ' ' + (r.pmh || '')).toLowerCase();
+
+      // 1. DM
+      const isDmHistory = /dm|เบาหวาน|e10|e11|e14/.test(diagStr);
+      const fbs = extractLabValue(r, ['blood sugar', 'fbs']);
+      if (isDmHistory || (fbs !== null && fbs >= 126)) {
+        dmSick++;
+      } else if (fbs !== null && fbs >= 100 && fbs < 126) {
+        dmRisk++;
+      }
+
+      // 2. DLP
+      const isDlpHistory = /dlp|dyslipidemia|lipid|ไขมัน|e78/.test(diagStr);
+      const chol = extractLabValue(r, ['cholesterol']);
+      const tg = extractLabValue(r, ['triglyceride']);
+      const ldl = extractLabValue(r, ['ldl']);
+      const hdl = extractLabValue(r, ['hdl']);
+
+      let hasDlp = isDlpHistory;
+      if (chol !== null && chol >= 200) { dlpChol++; hasDlp = true; }
+      if (tg !== null && tg >= 150) { dlpTg++; hasDlp = true; }
+      if (ldl !== null && ldl >= 100) { dlpLdl++; hasDlp = true; }
+      if (hdl !== null && hdl < 40) { hasDlp = true; }
+      if (hasDlp) dlpCount++;
+
+      // 3. CKD
+      const isCkdHistory = /ckd|kidney|ไต|n18/.test(diagStr);
+      const egfr = extractLabValue(r, ['egfr', 'gfr']);
+      const cr = extractLabValue(r, ['creatinine']);
+      const bun = extractLabValue(r, ['bun']);
+      const sex = String(r.sex || '').trim();
+
+      let hasCkd = isCkdHistory;
+      if (egfr !== null && egfr < 60) { ckdEgfr++; hasCkd = true; }
+      const crLimit = (sex === '1' || sex === 'ชาย' || sex.toLowerCase() === 'm') ? 1.3 : 1.1;
+      if (cr !== null && cr > crLimit) { ckdCr++; hasCkd = true; }
+      if (bun !== null && bun > 21) { ckdBun++; hasCkd = true; }
+      if (hasCkd) ckdCount++;
+    });
+  }
+
+  // Updates: DM
+  const dmTotal = dmSick + dmRisk;
+  const dmPct = total > 0 ? ((dmTotal / total) * 100).toFixed(1) : '0';
+  safeSetText('ncdDmTotal', dmTotal.toLocaleString());
+  safeSetText('ncdDmPct', `${dmPct}%`);
+  safeSetText('ncdDmSick', `${dmSick.toLocaleString()} คน`);
+  safeSetText('ncdDmRisk', `${dmRisk.toLocaleString()} คน`);
+
+  let dmBadge = '<span class="badge bg-success">อยู่ในเกณฑ์ดี</span>';
+  let dmDesc = 'ส่วนใหญ่ระดับน้ำตาลในเลือดอยู่ในเกณฑ์ปกติ';
+  if (parseFloat(dmPct) >= 20) {
+    dmBadge = '<span class="badge bg-danger">ความชุกสูง</span>';
+    dmDesc = `พบกลุ่มเสี่ยง Pre-DM และเบาหวานรวม ${dmPct}% ควรติดตามพฤติกรรมบริโภคหวาน`;
+  } else if (parseFloat(dmPct) >= 10) {
+    dmBadge = '<span class="badge bg-warning text-dark">เฝ้าระวัง</span>';
+    dmDesc = `พบกลุ่มเสี่ยงน้ำตาลเกินเกณฑ์ ${dmRisk} คน แนะนำคุมอาหารและปรับพฤติกรรม`;
+  }
+  safeSetHtml('ncdDmTrendBadge', dmBadge);
+  safeSetText('ncdDmDesc', dmDesc);
+
+  // Updates: DLP
+  const dlpPct = total > 0 ? ((dlpCount / total) * 100).toFixed(1) : '0';
+  safeSetText('ncdDlpTotal', dlpCount.toLocaleString());
+  safeSetText('ncdDlpPct', `${dlpPct}%`);
+  safeSetText('ncdDlpChol', `${dlpChol.toLocaleString()} คน`);
+  safeSetText('ncdDlpTg', `${dlpTg.toLocaleString()} คน`);
+  safeSetText('ncdDlpLdl', `${dlpLdl.toLocaleString()} คน`);
+
+  let dlpBadge = '<span class="badge bg-success">อยู่ในเกณฑ์ดี</span>';
+  let dlpDesc = 'ส่วนใหญ่ระดับไขมันในเลือดอยู่ในเกณฑ์ปกติ';
+  if (parseFloat(dlpPct) >= 40) {
+    dlpBadge = '<span class="badge bg-danger">ความชุกสูง</span>';
+    dlpDesc = `พบภาวะไขมันผิดปกติ ${dlpPct}% โดยเฉพาะ LDL (${dlpLdl} คน) และ Chol (${dlpChol} คน)`;
+  } else if (parseFloat(dlpPct) >= 20) {
+    dlpBadge = '<span class="badge bg-warning text-dark">เฝ้าระวัง</span>';
+    dlpDesc = `พบไขมันเกินเกณฑ์ ${dlpCount} คน แนะนำเลี่ยงอาหารไขมันอิ่มตัว`;
+  }
+  safeSetHtml('ncdDlpTrendBadge', dlpBadge);
+  safeSetText('ncdDlpDesc', dlpDesc);
+
+  // Updates: CKD
+  const ckdPct = total > 0 ? ((ckdCount / total) * 100).toFixed(1) : '0';
+  safeSetText('ncdCkdTotal', ckdCount.toLocaleString());
+  safeSetText('ncdCkdPct', `${ckdPct}%`);
+  safeSetText('ncdCkdEgfr', `${ckdEgfr.toLocaleString()} คน`);
+  safeSetText('ncdCkdCr', `${ckdCr.toLocaleString()} คน`);
+  safeSetText('ncdCkdBun', `${ckdBun.toLocaleString()} คน`);
+
+  let ckdBadge = '<span class="badge bg-success">การทำงานของไตปกติ</span>';
+  let ckdDesc = 'ไม่พบผู้ที่มีค่าการทำงานของไตลดลงอย่างมีนัยสำคัญ';
+  if (ckdEgfr > 0) {
+    ckdBadge = `<span class="badge bg-danger">พบไตเสื่อม Stage 3+ (${ckdEgfr} คน)</span>`;
+    ckdDesc = `พบ eGFR < 60 mL/min จำนวน ${ckdEgfr} คน ควรพบแพทย์เพื่อวางแผนการรักษา`;
+  } else if (ckdCr > 0 || ckdBun > 0) {
+    ckdBadge = '<span class="badge bg-warning text-dark">เฝ้าระวังไต</span>';
+    ckdDesc = `พบ Creatinine หรือ BUN สูง ${ckdCount} คน ควรดื่มน้ำสะอาดเพียงพอและเลี่ยงยาทำลายไต`;
+  }
+  safeSetHtml('ncdCkdTrendBadge', ckdBadge);
+  safeSetText('ncdCkdDesc', ckdDesc);
+}
+
+// -------------------------------------------------------------------------
+// 5.2 การกระจายตัวของ BMI (Asian Criteria)
+// -------------------------------------------------------------------------
+function renderBmiDistribution(targetRows) {
+  const rows = targetRows || appState.filteredRows || appState.allRows;
+
+  let cUnder = 0, cNormal = 0, cOver = 0, cObese1 = 0, cObese2 = 0;
+  let validCount = 0;
+
+  if (rows && rows.length > 0) {
+    rows.forEach(r => {
+      const bmi = parseFloat(r.bmi);
+      if (isNaN(bmi) || bmi <= 0) return;
+
+      validCount++;
+      if (bmi < 18.5) cUnder++;
+      else if (bmi < 23.0) cNormal++;
+      else if (bmi < 25.0) cOver++;
+      else if (bmi < 30.0) cObese1++;
+      else cObese2++;
+    });
+  }
+
+  const pUnder = validCount > 0 ? ((cUnder / validCount) * 100).toFixed(1) : '0';
+  const pNormal = validCount > 0 ? ((cNormal / validCount) * 100).toFixed(1) : '0';
+  const pOver = validCount > 0 ? ((cOver / validCount) * 100).toFixed(1) : '0';
+  const pObese1 = validCount > 0 ? ((cObese1 / validCount) * 100).toFixed(1) : '0';
+  const pObese2 = validCount > 0 ? ((cObese2 / validCount) * 100).toFixed(1) : '0';
+
+  const cOverTotal = cOver + cObese1 + cObese2;
+  const pOverTotal = validCount > 0 ? ((cOverTotal / validCount) * 100).toFixed(1) : '0';
+
+  safeSetText('bmiCountUnder', cUnder.toLocaleString());
+  safeSetText('bmiPctUnder', `${pUnder}%`);
+  safeSetText('bmiCountNormal', cNormal.toLocaleString());
+  safeSetText('bmiPctNormal', `${pNormal}%`);
+  safeSetText('bmiCountOver', cOver.toLocaleString());
+  safeSetText('bmiPctOver', `${pOver}%`);
+  safeSetText('bmiCountObese1', cObese1.toLocaleString());
+  safeSetText('bmiPctObese1', `${pObese1}%`);
+  safeSetText('bmiCountObese2', cObese2.toLocaleString());
+  safeSetText('bmiPctObese2', `${pObese2}%`);
+  safeSetText('bmiOverweightTotalPct', `${pOverTotal}% (${cOverTotal} คน)`);
+
+  destroyChart('chartBmi');
+  const ctx = document.getElementById('chartBmi');
+  if (ctx && validCount > 0) {
+    appState.charts['chartBmi'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['ผอม (<18.5)', 'สมส่วน (18.5-22.9)', 'ท้วม (23-24.9)', 'อ้วน 1 (25-29.9)', 'อ้วน 2 (>=30)'],
+        datasets: [{
+          label: 'จำนวนเจ้าหน้าที่ (คน)',
+          data: [cUnder, cNormal, cOver, cObese1, cObese2],
+          backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#f97316', '#ef4444'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const val = ctx.raw || 0;
+                const pct = validCount > 0 ? ((val / validCount) * 100).toFixed(1) : 0;
+                return ` ${val} คน (${pct}%)`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  }
+}
+
+// -------------------------------------------------------------------------
+// 5.3 สรุปความผิดปกติแต่ละ LAB (Lab Abnormalities & Trend)
+// -------------------------------------------------------------------------
+function renderLabAbnormalitiesSummary(targetRows) {
+  const rows = targetRows || appState.filteredRows || appState.allRows;
+  const tbody = document.getElementById('labAbnormalitiesTableBody');
+  if (!tbody) return;
+
+  if (!rows || !rows.length || !appState.headers || appState.headers.length <= 18) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">ไม่พบข้อมูลผล Lab</td></tr>';
+    destroyChart('chartTopAbnormalLabs');
+    safeSetText('topAbnormalLabName', '-');
+    return;
+  }
+
+  // รวมรายการ Lab จาก headers
+  const labStatsMap = new Map();
+
+  for (let c = 18; c < appState.headers.length; c++) {
+    if (c === 87 || c === 89) continue; // Skip advice CJ & group CL
+    const headerName = appState.headers[c] || '';
+    const refInfo = getLabReferenceInfo(headerName);
+    if (!refInfo) continue;
+
+    const displayName = refInfo.name || headerName;
+    const key = displayName.toLowerCase();
+
+    if (!labStatsMap.has(key)) {
+      labStatsMap.set(key, {
+        name: displayName,
+        normalRef: refInfo.normal || '-',
+        unit: refInfo.unit || '',
+        tested: 0,
+        abnormal: 0,
+        colIndices: [c]
+      });
+    } else {
+      labStatsMap.get(key).colIndices.push(c);
+    }
+  }
+
+  // นับผลการตรวจ
+  rows.forEach(r => {
+    if (!r.rawRow) return;
+    labStatsMap.forEach(stat => {
+      let val = null;
+      for (const colIdx of stat.colIndices) {
+        const cell = r.rawRow[colIdx];
+        if (cell !== null && cell !== undefined && String(cell).trim() !== '') {
+          val = cell;
+          break;
+        }
+      }
+
+      if (val !== null && val !== undefined && String(val).trim() !== '') {
+        stat.tested++;
+        const refInfo = getLabReferenceInfo(stat.name);
+        const evalRes = evaluateLabStatus(val, refInfo);
+        if (evalRes.isAbnormal) {
+          stat.abnormal++;
+        }
+      }
+    });
+  });
+
+  // กรองเฉพาะ Lab ที่มีผู้ตรวจตั้งแต่ 2 คนขึ้นไป
+  const labList = Array.from(labStatsMap.values())
+    .filter(item => item.tested >= 2)
+    .map(item => ({
+      ...item,
+      rate: item.tested > 0 ? (item.abnormal / item.tested) * 100 : 0
+    }));
+
+  // เรียงลำดับจากอัตราผิดปกติสูงสุดลงมา
+  labList.sort((a, b) => b.rate - a.rate || b.abnormal - a.abnormal);
+
+  if (!labList.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">ไม่พบข้อมูลผล Lab ที่มีค่าอ้างอิง</td></tr>';
+    destroyChart('chartTopAbnormalLabs');
+    safeSetText('topAbnormalLabName', '-');
+    return;
+  }
+
+  // แสดงชื่อ Lab ที่ผิดปกติสูงสุด
+  const topLab = labList[0];
+  if (topLab && topLab.abnormal > 0) {
+    safeSetText('topAbnormalLabName', `${topLab.name} (${topLab.rate.toFixed(1)}%)`);
+  } else {
+    safeSetText('topAbnormalLabName', 'ทุกรายการอยู่ในเกณฑ์ปกติ');
+  }
+
+  // เรนเดอร์ตาราง
+  tbody.innerHTML = '';
+  labList.forEach(item => {
+    const rateFixed = item.rate.toFixed(1);
+    let progressBg = 'bg-success';
+    let trendBadge = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">ปกติส่วนใหญ่</span>';
+
+    if (item.rate >= 30) {
+      progressBg = 'bg-danger';
+      trendBadge = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">ความชุกสูง</span>';
+    } else if (item.rate >= 15) {
+      progressBg = 'bg-warning';
+      trendBadge = '<span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25">เฝ้าระวัง</span>';
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="fw-bold text-dark">${escHtml(item.name)}</div>
+        <small class="text-muted fs-9">ค่าปกติ: ${escHtml(item.normalRef)} ${escHtml(item.unit)}</small>
+      </td>
+      <td class="text-center font-monospace">${item.tested.toLocaleString()}</td>
+      <td class="text-center font-monospace fw-bold ${item.abnormal > 0 ? 'text-danger' : 'text-success'}">${item.abnormal.toLocaleString()}</td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          <div class="progress flex-fill" style="height: 6px;">
+            <div class="progress-bar ${progressBg}" style="width: ${Math.min(item.rate, 100)}%;"></div>
+          </div>
+          <span class="font-monospace fw-semibold ${item.rate >= 30 ? 'text-danger' : (item.rate >= 15 ? 'text-warning' : 'text-success')}" style="width: 42px; text-align: right;">${rateFixed}%</span>
+        </div>
+      </td>
+      <td class="text-center">${trendBadge}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Top 10 Chart
+  const top10 = labList.slice(0, 10);
+  destroyChart('chartTopAbnormalLabs');
+  const ctx = document.getElementById('chartTopAbnormalLabs');
+  if (ctx && top10.length > 0) {
+    const barColors = top10.map(t => {
+      if (t.rate >= 30) return '#ef4444';
+      if (t.rate >= 15) return '#f59e0b';
+      return '#10b981';
+    });
+
+    appState.charts['chartTopAbnormalLabs'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top10.map(t => t.name),
+        datasets: [{
+          label: 'อัตราผิดปกติ (%)',
+          data: top10.map(t => parseFloat(t.rate.toFixed(1))),
+          backgroundColor: barColors,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const item = top10[ctx.dataIndex];
+                return ` ผิดปกติ ${item.abnormal} จาก ${item.tested} คน (${item.rate.toFixed(1)}%)`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: Math.min(100, Math.ceil((top10[0].rate + 10) / 10) * 10),
+            ticks: {
+              callback: (val) => `${val}%`
+            }
+          }
+        }
       }
     });
   }
