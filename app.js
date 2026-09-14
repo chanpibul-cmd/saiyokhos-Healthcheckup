@@ -302,6 +302,75 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =========================================================================
+// Helper: ดึงข้อมูล fetch พร้อมแปลง JSON และระบบ Auto-retry เมื่อ Cloud Server Cold-Start
+// =========================================================================
+async function safeFetchJson(url, options = {}, maxRetries = 2, delayMs = 1500, onRetry = null) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // เพิ่ม timestamp ป้องกัน Browser Cache เมื่อเป็น GET
+      let fetchUrl = url;
+      if (!options.method || options.method.toUpperCase() === 'GET') {
+        const sep = fetchUrl.includes('?') ? '&' : '?';
+        fetchUrl = `${fetchUrl}${sep}_t=${Date.now()}`;
+      }
+
+      const response = await fetch(fetchUrl, {
+        cache: 'no-cache',
+        ...options
+      });
+
+      const text = await response.text();
+      const trimmed = text.trim();
+
+      // หาก Response ที่ได้เป็น HTML (เช่น Google Apps Script Cold-Start, 503, หรือ Redirect Interstitial)
+      if (trimmed.startsWith('<') || trimmed.includes('<!DOCTYPE') || trimmed.includes('<html')) {
+        if (attempt < maxRetries) {
+          console.warn(`[safeFetchJson] ได้รับ HTML แทน JSON (Google Apps Script Cold-Start). กำลังลองใหม่รอบที่ ${attempt + 1}/${maxRetries}...`);
+          if (typeof onRetry === 'function') {
+            onRetry(attempt + 1, maxRetries);
+          }
+          await new Promise(r => setTimeout(r, delayMs));
+          continue;
+        }
+        throw new Error('เซิร์ฟเวอร์ Google Apps Script กำลังเริ่มต้นระบบ (Cold Start) กรุณากดลองใหม่อีกครั้ง');
+      }
+
+      // พยายามแปลงผลลัพธ์เป็น JSON
+      let data;
+      try {
+        data = JSON.parse(trimmed);
+      } catch (parseErr) {
+        if (attempt < maxRetries) {
+          console.warn(`[safeFetchJson] ไม่สามารถแปลง JSON ได้. กำลังลองใหม่รอบที่ ${attempt + 1}/${maxRetries}...`);
+          if (typeof onRetry === 'function') {
+            onRetry(attempt + 1, maxRetries);
+          }
+          await new Promise(r => setTimeout(r, delayMs));
+          continue;
+        }
+        throw new Error('ข้อมูลที่ได้รับจาก Google Apps Script ไม่อยู่ในรูปแบบ JSON ที่ถูกต้อง');
+      }
+
+      return data;
+
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        console.warn(`[safeFetchJson] เกิดข้อผิดพลาด: ${err.message}. กำลังลองใหม่รอบที่ ${attempt + 1}/${maxRetries}...`);
+        if (typeof onRetry === 'function') {
+          onRetry(attempt + 1, maxRetries);
+        }
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+
+  throw lastError || new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ Google Apps Script ได้');
+}
+
+// =========================================================================
 // 1. ระบบยืนยันตัวตน (Authentication & Login)
 // =========================================================================
 function showLoginView() {
@@ -348,8 +417,8 @@ async function handleLogin(event) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> กำลังตรวจสอบ...';
 
   try {
-    // ส่งข้อมูลยืนยันตัวตนผ่าน POST Body แทน GET เพื่อความปลอดภัยของรหัสผ่าน
-    const response = await fetch(appState.apiUrl, {
+    // ส่งข้อมูลยืนยันตัวตนผ่าน POST Body พร้อมระบบ Auto-retry หากเซิร์ฟเวอร์เพิ่งตื่น (Cold start)
+    const res = await safeFetchJson(appState.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -357,8 +426,9 @@ async function handleLogin(event) {
         username: username,
         password: password
       })
+    }, 2, 1500, (retryCount) => {
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> ปลุก Cloud (${retryCount})...`;
     });
-    const res = await response.json();
 
     if (res.success && res.token) {
       appState.token = res.token;
@@ -388,7 +458,9 @@ async function handleLogin(event) {
     }
   } catch (err) {
     console.error('API login error:', err);
-    errEl.textContent = 'ไม่สามารถเชื่อมต่อ API ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+    errEl.textContent = err.message && err.message.includes('Cold Start')
+      ? err.message
+      : 'ไม่สามารถเชื่อมต่อ API ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
     errEl.classList.remove('d-none');
   } finally {
     btn.disabled = false;
@@ -442,8 +514,20 @@ async function loadSheetData() {
 
   try {
     const url = `${appState.apiUrl}?action=get_data&token=${encodeURIComponent(appState.token)}`;
-    const response = await fetch(url);
-    const data = await response.json();
+    const data = await safeFetchJson(url, { method: 'GET' }, 3, 2000, (retryCount, maxRetries) => {
+      try {
+        Swal.update({
+          title: 'กำลังเชื่อมต่อ Google Sheets...',
+          text: `กำลังปลุกระบบ Cloud Server (ครั้งที่ ${retryCount}/${maxRetries})... กรุณารอสักครู่`
+        });
+      } catch (e) {
+        const content = Swal.getHtmlContainer();
+        if (content) {
+          content.textContent = `กำลังปลุกระบบ Cloud Server (ครั้งที่ ${retryCount}/${maxRetries})... กรุณารอสักครู่`;
+        }
+      }
+    });
+
     Swal.close();
 
     if (data.require_login) {
@@ -464,12 +548,21 @@ async function loadSheetData() {
     renderMatrixTable();
 
   } catch (err) {
-    console.error(err);
+    console.error('loadSheetData error:', err);
     Swal.fire({
       icon: 'error',
       title: 'โหลดข้อมูลล้มเหลว',
       text: err.message,
-      footer: '<small>กรุณาตรวจสอบการ Deploy ของ Google Apps Script Web App</small>'
+      showCancelButton: true,
+      confirmButtonText: '<i class="fa-solid fa-rotate-right me-1"></i> ลองใหม่อีกครั้ง',
+      cancelButtonText: 'ปิด',
+      confirmButtonColor: '#0f766e',
+      cancelButtonColor: '#64748b',
+      footer: '<small>หากพึ่งเปิดระบบ อาจเกิดจาก Cloud Server กำลังเริ่มต้นการทำงาน (Cold Start)</small>'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        loadSheetData();
+      }
     });
   }
 }
@@ -1432,55 +1525,109 @@ function renderPatientHistoryCharts(hn) {
 
   if (metric === 'all') {
     ds1 = [
-      { label: 'FBS', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
-      { label: 'Chol', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
-      { label: 'TG', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
-      { label: 'LDL', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
-      { label: 'HDL', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
+      { label: 'FBS', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'Chol', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'TG', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'LDL', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'HDL', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5, spanGaps: true }
     ];
     ds2 = [
-      { label: 'eGFR', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
-      { label: 'BUN', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
-      { label: 'Cr', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 },
-      { label: 'Uric', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 5 },
-      { label: 'SGOT', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
-      { label: 'SGPT', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5 }
+      { label: 'eGFR', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'BUN', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'Cr', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'Uric', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'SGOT', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'SGPT', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5, spanGaps: true }
     ];
   } else if (metric === 'lipid') {
     ds1 = [
-      { label: 'Cholesterol (<200)', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5 },
-      { label: 'Triglyceride (<150)', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 },
-      { label: 'LDL (<100)', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
-      { label: 'HDL (>40)', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 }
+      { label: 'Cholesterol (<200)', data: cholVals, borderColor: '#dc2626', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'Triglyceride (<150)', data: tgVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'LDL (<100)', data: ldlVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'HDL (>40)', data: hdlVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5, spanGaps: true }
     ];
   } else if (metric === 'sugar') {
     ds1 = [
-      { label: 'FBS น้ำตาลในเลือด (<100)', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 6, fill: true, backgroundColor: 'rgba(2, 132, 199, 0.1)' }
+      { label: 'FBS น้ำตาลในเลือด (<100)', data: fbsVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 6, fill: true, backgroundColor: 'rgba(2, 132, 199, 0.1)', spanGaps: true }
     ];
   } else if (metric === 'kidney') {
     ds1 = [
-      { label: 'eGFR (>60)', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
-      { label: 'BUN (7-21)', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5 },
-      { label: 'Creatinine (0.5-1.3)', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 }
+      { label: 'eGFR (>60)', data: egfrVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'BUN (7-21)', data: bunVals, borderColor: '#0891b2', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'Creatinine (0.5-1.3)', data: crVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5, spanGaps: true }
     ];
   } else if (metric === 'liver') {
     ds1 = [
-      { label: 'SGOT / AST (<35)', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
-      { label: 'SGPT / ALT (<35)', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5 },
-      { label: 'ALP (30-120)', data: alpVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5 }
+      { label: 'SGOT / AST (<35)', data: sgotVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'SGPT / ALT (<35)', data: sgptVals, borderColor: '#7c3aed', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'ALP (30-120)', data: alpVals, borderColor: '#f59e0b', tension: 0.2, pointRadius: 5, spanGaps: true }
     ];
   } else if (metric === 'cbc') {
     ds1 = [
-      { label: 'Hb (12-17)', data: hbVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5 },
-      { label: 'Hct (35-50%)', data: hctVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5 },
-      { label: 'WBC (3.5-10.5)', data: wbcVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5 },
-      { label: 'RBC (3.9-5.7)', data: rbcVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5 },
-      { label: 'PLT (150-450)', data: pltVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5 }
+      { label: 'Hb (12-17)', data: hbVals, borderColor: '#e11d48', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'Hct (35-50%)', data: hctVals, borderColor: '#9333ea', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'WBC (3.5-10.5)', data: wbcVals, borderColor: '#0284c7', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'RBC (3.9-5.7)', data: rbcVals, borderColor: '#16a34a', tension: 0.2, pointRadius: 5, spanGaps: true },
+      { label: 'PLT (150-450)', data: pltVals, borderColor: '#ea580c', tension: 0.2, pointRadius: 5, spanGaps: true }
     ];
   } else if (metric === 'uric') {
     ds1 = [
-      { label: 'Uric Acid (M 3.6-8.2 / F 2.3-6.1)', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 6, fill: true, backgroundColor: 'rgba(101, 163, 13, 0.1)' }
+      { label: 'Uric Acid (M 3.6-8.2 / F 2.3-6.1)', data: uricVals, borderColor: '#65a30d', tension: 0.2, pointRadius: 6, fill: true, backgroundColor: 'rgba(101, 163, 13, 0.1)', spanGaps: true }
     ];
+  }
+
+  // ปรับการจัด Layout และชื่อหัวข้อกราฟตามตัวเลือกที่กด
+  const col1 = document.getElementById('historyChart1Col');
+  const col2 = document.getElementById('historyChart2Col');
+  const wrap1 = document.getElementById('historyChart1Wrapper');
+
+  const METRIC_TITLES = {
+    all: {
+      chart1: 'น้ำตาลและไขมันในเลือด (FBS / Chol / TG / LDL / HDL)',
+      chart2: 'การทำงานของตับและไต (eGFR / BUN / Cr / SGOT / SGPT / Uric)'
+    },
+    lipid: {
+      chart1: 'ระดับไขมันในเลือด (Cholesterol / Triglyceride / LDL / HDL)'
+    },
+    sugar: {
+      chart1: 'ระดับน้ำตาลในเลือด (FBS: Fasting Blood Sugar)'
+    },
+    kidney: {
+      chart1: 'การทำงานของไต (eGFR / BUN / Creatinine)'
+    },
+    liver: {
+      chart1: 'การทำงานของตับ (SGOT / SGPT / ALP)'
+    },
+    cbc: {
+      chart1: 'ความสมบูรณ์ของเม็ดเลือด CBC (Hb / Hct / WBC / RBC / PLT)'
+    },
+    uric: {
+      chart1: 'ระดับกรดยูริกในเลือด (Uric Acid)'
+    }
+  };
+
+  if (metric === 'all') {
+    if (col1) {
+      col1.className = 'col-12 col-md-6';
+      col1.style.display = '';
+    }
+    if (col2) {
+      col2.className = 'col-12 col-md-6';
+      col2.style.display = '';
+    }
+    if (wrap1) wrap1.style.height = '220px';
+    safeSetText('historyChart1Title', METRIC_TITLES.all.chart1);
+    safeSetText('historyChart2Title', METRIC_TITLES.all.chart2);
+  } else {
+    if (col1) {
+      col1.className = 'col-12';
+      col1.style.display = '';
+    }
+    if (col2) {
+      col2.style.display = 'none';
+    }
+    if (wrap1) wrap1.style.height = '260px';
+    safeSetText('historyChart1Title', METRIC_TITLES[metric]?.chart1 || 'กราฟผลตรวจสุขภาพ');
   }
 
   // Chart 1
@@ -1504,34 +1651,19 @@ function renderPatientHistoryCharts(hn) {
   // Chart 2
   destroyChart('chartHistoryOrgan');
   const ctxOrgan = document.getElementById('chartHistoryOrgan');
-  if (ctxOrgan) {
-    // If specific single metric is selected and ds2 is empty, we can mirror or hide
-    if (ds2.length > 0) {
-      ctxOrgan.parentElement.parentElement.style.display = '';
-      appState.charts['chartHistoryOrgan'] = new Chart(ctxOrgan, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: ds2
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: { y: { beginAtZero: false } }
-        }
-      });
-    } else {
-      // เมื่อเลือกหมวดเฉพาะ แสดงเต็มความกว้างสวยงาม พร้อมเคลียร์ instance เก่า
-      destroyChart('chartHistoryOrgan');
-      ctxOrgan.parentElement.parentElement.style.display = 'none';
-      if (ctxLipid && ctxLipid.parentElement && ctxLipid.parentElement.parentElement) {
-        ctxLipid.parentElement.parentElement.className = 'col-12';
+  if (ctxOrgan && ds2.length > 0) {
+    appState.charts['chartHistoryOrgan'] = new Chart(ctxOrgan, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: ds2
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: false } }
       }
-    }
-  }
-
-  if (metric === 'all' && ctxLipid && ctxLipid.parentElement && ctxLipid.parentElement.parentElement) {
-    ctxLipid.parentElement.parentElement.className = 'col-12 col-md-6';
+    });
   }
 }
 
@@ -1540,10 +1672,18 @@ function extractLabValue(row, keywords) {
   for (let c = 18; c < appState.headers.length; c++) {
     const h = (appState.headers[c] || '').toLowerCase();
     for (const kw of keywords) {
+      // ป้องกันการตรวจจับคำย่อยชนกับแล็บตัวอื่น เช่น 'ast' ใน 'blast' หรือ 'cast'
+      if (kw === 'ast' && (h.includes('blast') || h.includes('cast'))) continue;
+      if (kw === 'wbc' && (h.includes('ua') || h.includes('stool'))) continue;
+      if (kw === 'rbc' && (h.includes('ua') || h.includes('stool'))) continue;
+      if (kw === 'hb' && (h.includes('hba1c') || h.includes('hbsag') || h.includes('anti-hbs'))) continue;
+
       if (h.includes(kw)) {
         const val = row.rawRow[c];
-        const num = parseFloat(val);
-        return isNaN(num) ? null : num;
+        if (val !== null && val !== undefined && String(val).trim() !== '') {
+          const num = parseFloat(val);
+          if (!isNaN(num)) return num;
+        }
       }
     }
   }
@@ -2009,12 +2149,11 @@ async function saveAssessmentChanges() {
       advice: adviceText
     };
 
-    const res = await fetch(appState.apiUrl, {
+    const result = await safeFetchJson(appState.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
-    });
-    const result = await res.json();
+    }, 1, 1500);
 
     if (!result.success) {
       throw new Error(result.message || 'บันทึกข้อมูลไม่สำเร็จ');
@@ -2093,12 +2232,11 @@ async function executeDeletePatient(rowIndex, hn, name) {
       hn: hn
     };
 
-    const res = await fetch(appState.apiUrl, {
+    const result = await safeFetchJson(appState.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
-    });
-    const result = await res.json();
+    }, 1, 1500);
 
     if (!result.success) {
       throw new Error(result.message || 'ไม่สามารถลบข้อมูลได้');
@@ -2285,8 +2423,16 @@ function extractLabString(row, keywords) {
   for (let c = 18; c < appState.headers.length; c++) {
     const h = (appState.headers[c] || '').toLowerCase();
     for (const kw of keywords) {
+      if (kw === 'ast' && (h.includes('blast') || h.includes('cast'))) continue;
+      if (kw === 'wbc' && (h.includes('ua') || h.includes('stool'))) continue;
+      if (kw === 'rbc' && (h.includes('ua') || h.includes('stool'))) continue;
+      if (kw === 'hb' && (h.includes('hba1c') || h.includes('hbsag') || h.includes('anti-hbs'))) continue;
+
       if (h.includes(kw)) {
-        return row.rawRow[c] !== null && row.rawRow[c] !== undefined ? String(row.rawRow[c]) : '';
+        const val = row.rawRow[c];
+        if (val !== null && val !== undefined && String(val).trim() !== '') {
+          return String(val).trim();
+        }
       }
     }
   }
