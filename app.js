@@ -29,6 +29,100 @@ function getStoredAuth() {
 
 const initialAuth = getStoredAuth();
 
+// =========================================================================
+// Helper แคชข้อมูล Google Sheets ใน LocalStorage (Stale-While-Revalidate)
+// ช่วยให้เปิดหน้าเว็บแล้วโหลดข้อมูลขึ้นมาแสดงผลได้ทันทีใน < 0.05 วินาที
+// =========================================================================
+const SHEET_CACHE_KEY = 'saiyok_sheet_cache_data';
+
+function getCachedSheetData() {
+  try {
+    let jsonStr = localStorage.getItem(SHEET_CACHE_KEY);
+    if (!jsonStr) {
+      jsonStr = sessionStorage.getItem(SHEET_CACHE_KEY);
+    }
+    if (!jsonStr) return null;
+    const parsed = JSON.parse(jsonStr);
+    if (parsed && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+      return parsed;
+    }
+    return null;
+  } catch (e) {
+    console.warn('Error reading cached sheet data:', e);
+    return null;
+  }
+}
+
+function setCachedSheetData(data) {
+  try {
+    const payload = {
+      headers: data.headers || [],
+      rows: data.rows || [],
+      stats: data.stats || {},
+      savedAt: Date.now()
+    };
+    const jsonStr = JSON.stringify(payload);
+    localStorage.setItem(SHEET_CACHE_KEY, jsonStr);
+    return true;
+  } catch (e) {
+    console.warn('LocalStorage quota exceeded or unavailable, falling back to sessionStorage:', e);
+    try {
+      const payload = {
+        headers: data.headers || [],
+        rows: data.rows || [],
+        stats: data.stats || {},
+        savedAt: Date.now()
+      };
+      sessionStorage.setItem(SHEET_CACHE_KEY, JSON.stringify(payload));
+      return true;
+    } catch (e2) {
+      console.warn('SessionStorage also failed:', e2);
+      return false;
+    }
+  }
+}
+
+function formatSyncTime(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp);
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m} น.`;
+}
+
+function updateSyncBadge(status, timeText = '') {
+  const badge = document.getElementById('navSyncBadge');
+  const icon = document.getElementById('navRefreshIcon');
+
+  if (icon) {
+    if (status === 'syncing') {
+      icon.classList.add('fa-spin');
+    } else {
+      icon.classList.remove('fa-spin');
+    }
+  }
+
+  if (!badge) return;
+
+  if (status === 'syncing') {
+    badge.className = 'badge bg-light text-primary border d-flex align-items-center gap-1 fs-9 shadow-sm py-1 px-2';
+    badge.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin text-primary"></i> <span class="d-none d-sm-inline">กำลังซิงก์ข้อมูล...</span><span class="d-sm-none">ซิงก์...</span>';
+    badge.title = 'กำลังดึงข้อมูลล่าสุดจาก Google Sheets ในพื้นหลัง';
+  } else if (status === 'synced') {
+    badge.className = 'badge bg-light text-success border d-flex align-items-center gap-1 fs-9 shadow-sm py-1 px-2';
+    badge.innerHTML = `<i class="fa-solid fa-check text-success"></i> ล่าสุด (${timeText || formatSyncTime(Date.now())})`;
+    badge.title = 'ข้อมูลเป็นปัจจุบันแล้ว ตรงกับ Google Sheets';
+  } else if (status === 'cached') {
+    badge.className = 'badge bg-light text-warning-emphasis border d-flex align-items-center gap-1 fs-9 shadow-sm py-1 px-2';
+    badge.innerHTML = `<i class="fa-solid fa-clock-rotate-left text-warning"></i> แคช (${timeText || ''})`;
+    badge.title = 'แสดงข้อมูลจากแคชในเครื่องทันที และกำลังซิงก์อัปเดต';
+  } else if (status === 'error') {
+    badge.className = 'badge bg-light text-danger border d-flex align-items-center gap-1 fs-9 shadow-sm py-1 px-2';
+    badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-danger"></i> ไม่สามารถซิงก์ได้`;
+    badge.title = 'ไม่สามารถเชื่อมต่อ Google Sheets ได้ในขณะนี้ กำลังใช้ข้อมูลจากแคช';
+  }
+}
+
 const appState = {
   apiUrl: localStorage.getItem('saiyok_api_url') || DEFAULT_API_URL,
   token: initialAuth.token,
@@ -292,7 +386,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // ตรวจสอบสถานะการเข้าสู่ระบบ
   if (appState.token && appState.user) {
     showDashboardView();
-    loadSheetData();
+
+    // Stale-While-Revalidate: แสดงข้อมูลจากแคชทันทีใน < 0.05 วินาที
+    const cached = getCachedSheetData();
+    if (cached && cached.rows && cached.rows.length > 0) {
+      appState.headers = cached.headers || [];
+      appState.allRows = cached.rows || [];
+      appState.stats = cached.stats || {};
+      applyFilters();
+      renderMatrixTable();
+      updateSyncBadge('cached', formatSyncTime(cached.savedAt));
+
+      // ซิงก์ข้อมูลล่าสุดจาก Google Sheets ในพื้นหลัง (ไม่บล็อกหน้าจอ)
+      loadSheetData(true);
+    } else {
+      // เปิดครั้งแรกสุดยังไม่มีแคช ให้แสดงโมดอลโหลดปกติ
+      loadSheetData(false);
+    }
   } else {
     showLoginView();
   }
@@ -451,7 +561,18 @@ async function handleLogin(event) {
       userEl.value = '';
       passEl.value = '';
       showDashboardView();
-      loadSheetData();
+      const cached = getCachedSheetData();
+      if (cached && cached.rows && cached.rows.length > 0) {
+        appState.headers = cached.headers || [];
+        appState.allRows = cached.rows || [];
+        appState.stats = cached.stats || {};
+        applyFilters();
+        renderMatrixTable();
+        updateSyncBadge('cached', formatSyncTime(cached.savedAt));
+        loadSheetData(true);
+      } else {
+        loadSheetData(false);
+      }
     } else {
       errEl.textContent = res.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
       errEl.classList.remove('d-none');
@@ -503,32 +624,44 @@ function handleLogout() {
 
 // =========================================================================
 // 2. การดึงข้อมูลจาก Google Sheets ผ่าน Google Apps Script API
+// พร้อมระบบ Stale-While-Revalidate (Background Sync และ Local Caching)
 // =========================================================================
-async function loadSheetData() {
-  Swal.fire({
-    title: 'กำลังเชื่อมต่อ Google Sheets...',
-    text: 'กำลังประมวลผลข้อมูลสุขภาพและผล Lab',
-    allowOutsideClick: false,
-    didOpen: () => Swal.showLoading()
-  });
+async function loadSheetData(isBackground = false) {
+  const hasExistingData = appState.allRows && appState.allRows.length > 0;
+  const isSilent = isBackground || hasExistingData;
+
+  updateSyncBadge('syncing');
+
+  if (!isSilent) {
+    Swal.fire({
+      title: 'กำลังเชื่อมต่อ Google Sheets...',
+      text: 'กำลังประมวลผลข้อมูลสุขภาพและผล Lab',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+  }
 
   try {
     const url = `${appState.apiUrl}?action=get_data&token=${encodeURIComponent(appState.token)}`;
     const data = await safeFetchJson(url, { method: 'GET' }, 3, 2000, (retryCount, maxRetries) => {
-      try {
-        Swal.update({
-          title: 'กำลังเชื่อมต่อ Google Sheets...',
-          text: `กำลังปลุกระบบ Cloud Server (ครั้งที่ ${retryCount}/${maxRetries})... กรุณารอสักครู่`
-        });
-      } catch (e) {
-        const content = Swal.getHtmlContainer();
-        if (content) {
-          content.textContent = `กำลังปลุกระบบ Cloud Server (ครั้งที่ ${retryCount}/${maxRetries})... กรุณารอสักครู่`;
+      if (!isSilent) {
+        try {
+          Swal.update({
+            title: 'กำลังเชื่อมต่อ Google Sheets...',
+            text: `กำลังปลุกระบบ Cloud Server (ครั้งที่ ${retryCount}/${maxRetries})... กรุณารอสักครู่`
+          });
+        } catch (e) {
+          const content = Swal.getHtmlContainer();
+          if (content) {
+            content.textContent = `กำลังปลุกระบบ Cloud Server (ครั้งที่ ${retryCount}/${maxRetries})... กรุณารอสักครู่`;
+          }
         }
       }
     });
 
-    Swal.close();
+    if (!isSilent) {
+      Swal.close();
+    }
 
     if (data.require_login) {
       forceLogout(data.message || 'Token หมดอายุหรือจำเป็นต้องเข้าสู่ระบบ');
@@ -539,6 +672,9 @@ async function loadSheetData() {
       throw new Error(data.message || 'ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้');
     }
 
+    // บันทึกลงแคช LocalStorage ทันที เพื่อให้การเปิดครั้งถัดไปเปิดได้ทันที
+    setCachedSheetData(data);
+
     appState.headers = data.headers || [];
     appState.allRows = data.rows || [];
     appState.stats = data.stats || {};
@@ -547,23 +683,58 @@ async function loadSheetData() {
     applyFilters();
     renderMatrixTable();
 
+    const timeNow = formatSyncTime(Date.now());
+    updateSyncBadge('synced', timeNow);
+
+    // หากเป็นการกดปุ่มรีเฟรชด้วยตนเอง (Manual refresh) ที่มีข้อมูลเดิมอยู่แล้ว ให้แสดง Toast แจ้งเตือนสั้นๆ
+    if (!isBackground && hasExistingData) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'อัปเดตข้อมูลล่าสุดเรียบร้อย',
+        text: `ซิงก์สำเร็จเวลา ${timeNow}`,
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true
+      });
+    }
+
   } catch (err) {
     console.error('loadSheetData error:', err);
-    Swal.fire({
-      icon: 'error',
-      title: 'โหลดข้อมูลล้มเหลว',
-      text: err.message,
-      showCancelButton: true,
-      confirmButtonText: '<i class="fa-solid fa-rotate-right me-1"></i> ลองใหม่อีกครั้ง',
-      cancelButtonText: 'ปิด',
-      confirmButtonColor: '#0f766e',
-      cancelButtonColor: '#64748b',
-      footer: '<small>หากพึ่งเปิดระบบ อาจเกิดจาก Cloud Server กำลังเริ่มต้นการทำงาน (Cold Start)</small>'
-    }).then((res) => {
-      if (res.isConfirmed) {
-        loadSheetData();
+
+    if (hasExistingData) {
+      // มีข้อมูลเดิมอยู่แล้ว ไม่ต้องเด้ง Popup รบกวนผู้ใช้ แสดงแค่ Badge และ Toast แจ้งเตือน
+      updateSyncBadge('error');
+      if (!isBackground) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'warning',
+          title: 'ไม่สามารถซิงก์ข้อมูลล่าสุดได้',
+          text: 'กำลังแสดงผลจากข้อมูลที่บันทึกไว้ล่าสุด',
+          showConfirmButton: false,
+          timer: 3500
+        });
       }
-    });
+    } else {
+      // ไม่มีข้อมูลเลย ต้องแจ้งเตือนเพื่อให้ลองใหม่อีกครั้ง
+      Swal.fire({
+        icon: 'error',
+        title: 'โหลดข้อมูลล้มเหลว',
+        text: err.message,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-rotate-right me-1"></i> ลองใหม่อีกครั้ง',
+        cancelButtonText: 'ปิด',
+        confirmButtonColor: '#0f766e',
+        cancelButtonColor: '#64748b',
+        footer: '<small>หากพึ่งเปิดระบบ อาจเกิดจาก Cloud Server กำลังเริ่มต้นการทำงาน (Cold Start)</small>'
+      }).then((res) => {
+        if (res.isConfirmed) {
+          loadSheetData(false);
+        }
+      });
+    }
   }
 }
 
@@ -2173,6 +2344,13 @@ async function saveAssessmentChanges() {
     renderGroupCharts();
     renderGroupSummaryTable();
 
+    // ซิงก์ค่าที่อัปเดตลงแคช LocalStorage
+    setCachedSheetData({
+      headers: appState.headers,
+      rows: appState.allRows,
+      stats: appState.stats
+    });
+
     if (appState.selectedPatientHn === row.hn) {
       selectPatient(row.hn);
     }
@@ -2253,6 +2431,13 @@ async function executeDeletePatient(rowIndex, hn, name) {
     renderGroupCharts();
     renderGroupSummaryTable();
     buildPatientSelectList();
+
+    // ซิงก์ค่าที่อัปเดตลงแคช LocalStorage
+    setCachedSheetData({
+      headers: appState.headers,
+      rows: appState.allRows,
+      stats: appState.stats
+    });
 
     Swal.fire({
       icon: 'success',
@@ -2662,6 +2847,8 @@ function saveApiUrlSetting() {
 
   appState.apiUrl = newUrl;
   localStorage.setItem('saiyok_api_url', newUrl);
+  localStorage.removeItem(SHEET_CACHE_KEY);
+  appState.allRows = [];
 
   Swal.fire({
     icon: 'success',
@@ -2671,7 +2858,7 @@ function saveApiUrlSetting() {
     showConfirmButton: false
   });
 
-  loadSheetData();
+  loadSheetData(false);
 }
 
 // Helper Helpers

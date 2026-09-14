@@ -46,14 +46,19 @@
 
       <!-- Right controls -->
       <div id="navUserControls" class="d-flex align-items-center gap-2 mt-2 mt-sm-0 d-none">
+        <!-- Sync Status Badge -->
+        <span id="navSyncBadge" class="badge bg-light text-secondary border d-flex align-items-center gap-1 fs-9 shadow-sm py-1 px-2" style="font-weight: 500;">
+          <i class="fa-solid fa-check text-success"></i> ข้อมูลพร้อมใช้งาน
+        </span>
+
         <a href="https://docs.google.com/spreadsheets/d/1ejjut45lXZ-G-qxpkAbmGVGk5JhcwZ8CGyA46Bx_w4k/edit" target="_blank" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1 shadow-sm">
           <i class="fa-solid fa-table"></i>
           <span class="d-none d-md-inline">เปิด Google Sheet</span>
           <i class="fa-solid fa-arrow-up-right-from-square ms-1 fs-9"></i>
         </a>
 
-        <button class="btn btn-light btn-sm text-dark d-flex align-items-center gap-1 shadow-sm" onclick="loadSheetData()" title="รีเฟรชข้อมูลล่าสุด">
-          <i class="fa-solid fa-rotate"></i>
+        <button class="btn btn-light btn-sm text-dark d-flex align-items-center gap-1 shadow-sm" onclick="loadSheetData(false)" title="รีเฟรชข้อมูลล่าสุด">
+          <i class="fa-solid fa-rotate" id="navRefreshIcon"></i>
           <span class="d-none d-sm-inline">รีเฟรช</span>
         </button>
 
@@ -715,21 +720,21 @@
                 </div>
               </div>
               <div class="row g-3" id="historyChartsContainer">
-                <!-- Chart 1: Blood Sugar & Lipids -->
-                <div class="col-12 col-md-6">
+                <!-- Chart 1: Blood Sugar & Lipids / Single Filter Metric -->
+                <div class="col-12 col-md-6" id="historyChart1Col">
                   <div class="border rounded-3 p-3 bg-light bg-opacity-25 h-100">
-                    <span class="fw-bold fs-8 text-dark d-block mb-2">น้ำตาลและไขมันในเลือด (FBS / Chol / TG / LDL / HDL)</span>
-                    <div style="height: 220px; position: relative;">
+                    <span class="fw-bold fs-8 text-dark d-block mb-2" id="historyChart1Title">น้ำตาลและไขมันในเลือด (FBS / Chol / TG / LDL / HDL)</span>
+                    <div style="height: 220px; position: relative;" id="historyChart1Wrapper">
                       <canvas id="chartHistoryLipid"></canvas>
                     </div>
                   </div>
                 </div>
 
                 <!-- Chart 2: Liver & Kidney -->
-                <div class="col-12 col-md-6">
+                <div class="col-12 col-md-6" id="historyChart2Col">
                   <div class="border rounded-3 p-3 bg-light bg-opacity-25 h-100">
-                    <span class="fw-bold fs-8 text-dark d-block mb-2">การทำงานของตับและไต (eGFR / BUN / Cr / SGOT / SGPT / Uric)</span>
-                    <div style="height: 220px; position: relative;">
+                    <span class="fw-bold fs-8 text-dark d-block mb-2" id="historyChart2Title">การทำงานของตับและไต (eGFR / BUN / Cr / SGOT / SGPT / Uric)</span>
+                    <div style="height: 220px; position: relative;" id="historyChart2Wrapper">
                       <canvas id="chartHistoryOrgan"></canvas>
                     </div>
                   </div>
