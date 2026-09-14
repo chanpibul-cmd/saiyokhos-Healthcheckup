@@ -1586,6 +1586,29 @@ function hasLabResults(row) {
   return false;
 }
 
+function formatVstTime(row) {
+  if (!row) return '-';
+  if (row.vsttime && /^\d{1,2}:\d{2}/.test(row.vsttime)) {
+    return row.vsttime.substring(0, 5);
+  }
+  if (row.vn && /^\d{12}$/.test(row.vn)) {
+    const hh = row.vn.substring(6, 8);
+    const mm = row.vn.substring(8, 10);
+    return `${hh}:${mm}`;
+  }
+  if (row.rawRow && row.rawRow[2] && typeof row.rawRow[2] === 'string' && row.rawRow[2].includes('T')) {
+    try {
+      const d = new Date(row.rawRow[2]);
+      if (!isNaN(d.getTime())) {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+      }
+    } catch(e) {}
+  }
+  return row.vsttime || '-';
+}
+
 function selectPatient(hn) {
   appState.selectedPatientHn = hn;
 
@@ -1610,6 +1633,14 @@ function selectPatient(hn) {
   safeSetText('indivHn', row.hn || '-');
   safeSetText('indivVn', row.vn || '-');
   safeSetText('indivAge', row.age_y || '-');
+  safeSetText('indivDate', row.vstdate || '-');
+
+  const compDate = (row.companion_date && row.companion_date !== '-' && row.companion_date !== 'null') ? row.companion_date : '-';
+  safeSetText('indivCompanionDate', compDate);
+
+  const timeStr = formatVstTime(row);
+  safeSetText('indivTime', timeStr !== '-' ? `${timeStr} น.` : '-');
+
   safeSetText('indivBmi', row.bmi || '-');
   safeSetText('indivBp', row.bp || '-');
   safeSetText('indivPmh', row.pmh || 'ปฏิเสธโรคประจำตัว');
