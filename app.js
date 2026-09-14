@@ -2560,73 +2560,137 @@ function openPrintFromIndiv() {
   }
 }
 
+function getCleanLab(row, keywords) {
+  const s = extractLabString(row, keywords);
+  if (!s || s === '-' || s.toLowerCase() === 'null' || s.toLowerCase() === 'n/a') {
+    return { val: '-', num: null, hasData: false };
+  }
+  const n = parseFloat(s);
+  return { val: s, num: isNaN(n) ? null : n, hasData: true };
+}
+
 function renderPrint19Items(row) {
   const tbody = document.getElementById('asmTableBody');
   if (!tbody) return;
 
-  const hbsagRaw = extractLabString(row, ['hbsag']);
-  const hbsagIsAbn = /pos|positive|บวก/i.test(hbsagRaw);
+  const isFemale = (row.sex === 'หญิง' || row.sex === '2' || row.sex === 'female');
 
-  const antihcvRaw = extractLabString(row, ['antihcv', 'anti-hcv']);
-  const antihcvIsAbn = /pos|positive|บวก/i.test(antihcvRaw);
+  // 2.1 BMI
+  const bmiNum = parseFloat(row.bmi);
+  const hasBmi = !isNaN(bmiNum) && bmiNum > 0;
+  const bmiVal = hasBmi ? bmiNum.toFixed(2) : '-';
+  const bmiAbn = hasBmi ? (bmiNum < 18.5 || bmiNum >= 23.0) : false;
 
-  const hctRaw = extractLabString(row, ['hct (%)', 'hct']);
-  const hctNum = parseFloat(hctRaw);
-  const hctIsAbn = !isNaN(hctNum) ? (hctNum < 35 || hctNum > 50) : false;
+  // 2.2 BP
+  const bpRaw = (row.bp || '').trim();
+  const bpParts = bpRaw.split('/');
+  const bps = parseFloat(bpParts[0]);
+  const bpd = parseFloat(bpParts[1]);
+  const hasBp = !isNaN(bps) && bps > 0 && !isNaN(bpd) && bpd > 0;
+  const bpVal = hasBp ? `${Math.round(bps)}/${Math.round(bpd)}` : (bpRaw && bpRaw !== '-' ? bpRaw : '-');
+  const bpAbn = hasBp ? (bps >= 130 || bpd >= 85) : false;
 
-  const crRaw = extractLabString(row, ['creatinine']);
-  const crNum = parseFloat(crRaw);
-  const crIsAbn = !isNaN(crNum) ? (crNum < 0.5 || crNum > 1.3) : false;
+  // 2.3 Hct
+  const hct = getCleanLab(row, ['hct (%)', 'hct']);
+  const hctAbn = hct.hasData && hct.num !== null ? (isFemale ? (hct.num < 35 || hct.num > 45) : (hct.num < 38 || hct.num > 50)) : false;
 
-  const sgotRaw = extractLabString(row, ['sgot', 'ast']);
-  const sgotNum = parseFloat(sgotRaw);
-  const sgotIsAbn = !isNaN(sgotNum) ? (sgotNum >= 35) : false;
+  // 2.7 - 2.17 Blood Labs (รายการตรวจ 35 ปีขึ้นไป)
+  const fbs = getCleanLab(row, ['fbs', 'blood sugar']);
+  const fbsAbn = fbs.hasData && fbs.num !== null ? (fbs.num < 70 || fbs.num >= 100) : false;
 
-  const sgptRaw = extractLabString(row, ['sgpt', 'alt']);
-  const sgptNum = parseFloat(sgptRaw);
-  const sgptIsAbn = !isNaN(sgptNum) ? (sgptNum >= 35) : false;
+  const cr = getCleanLab(row, ['creatinine']);
+  const crAbn = cr.hasData && cr.num !== null ? (isFemale ? (cr.num < 0.5 || cr.num > 1.1) : (cr.num < 0.8 || cr.num > 1.3)) : false;
 
-  const uricRaw = extractLabString(row, ['uric']);
-  const uricNum = parseFloat(uricRaw);
-  const uricIsAbn = !isNaN(uricNum) ? (uricNum < 2.3 || uricNum > 8.2) : false;
+  const bun = getCleanLab(row, ['bun']);
+  const bunAbn = bun.hasData && bun.num !== null ? (bun.num < 7 || bun.num > 21) : false;
+
+  const chol = getCleanLab(row, ['cholesterol']);
+  const cholAbn = chol.hasData && chol.num !== null ? (chol.num >= 200) : false;
+
+  const tg = getCleanLab(row, ['triglyceride']);
+  const tgAbn = tg.hasData && tg.num !== null ? (tg.num >= 150) : false;
+
+  const hdl = getCleanLab(row, ['hdl']);
+  const hdlAbn = hdl.hasData && hdl.num !== null ? (hdl.num < 40) : false;
+
+  const ldl = getCleanLab(row, ['ldl']);
+  const ldlAbn = ldl.hasData && ldl.num !== null ? (ldl.num >= 100) : false;
+
+  const sgot = getCleanLab(row, ['sgot', 'ast']);
+  const sgotAbn = sgot.hasData && sgot.num !== null ? (isFemale ? (sgot.num >= 31) : (sgot.num >= 35)) : false;
+
+  const sgpt = getCleanLab(row, ['sgpt', 'alt']);
+  const sgptAbn = sgpt.hasData && sgpt.num !== null ? (isFemale ? (sgpt.num >= 31) : (sgpt.num >= 35)) : false;
+
+  const alp = getCleanLab(row, ['alk', 'alp']);
+  const alpAbn = alp.hasData && alp.num !== null ? (alp.num < 30 || alp.num > 120) : false;
+
+  const uric = getCleanLab(row, ['uric']);
+  const uricAbn = uric.hasData && uric.num !== null ? (isFemale ? (uric.num < 2.3 || uric.num > 6.1) : (uric.num < 3.6 || uric.num > 8.2)) : false;
+
+  // 2.18 - 2.19 Viral Hepatitis
+  const hbsag = getCleanLab(row, ['hbsag']);
+  const hbsagAbn = hbsag.hasData ? /pos|positive|บวก/i.test(hbsag.val) : false;
+
+  const antihcv = getCleanLab(row, ['antihcv', 'anti-hcv']);
+  const antihcvAbn = antihcv.hasData ? /pos|positive|บวก/i.test(antihcv.val) : false;
 
   const items = [
-    { no: '2.1', title: 'ดัชนีมวลกาย (BMI)', val: row.bmi || '-', ref: '18.5 - 22.9 kg/m²', isAbn: parseFloat(row.bmi) >= 23, skipCheck: false },
-    { no: '2.2', title: 'ความดันโลหิต (BP)', val: row.bp || '-', ref: '< 120/80 mmHg', isAbn: false, skipCheck: false },
-    { no: '2.3', title: 'ความเข้มข้นเลือด (Hct)', val: hctRaw || '-', ref: 'M = 38-50 mg% / F = 35-45 mg%', isAbn: hctIsAbn, skipCheck: false },
-    { no: '2.4', title: 'เอกซเรย์ปอด (CXR)', val: '-', ref: 'ปกติ / ไม่พบรอยโรค', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
-    { no: '2.5', title: 'ตรวจปัสสาวะ (UA)', val: '-', ref: 'Negative', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
-    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Negative', isAbn: false, skipCheck: true }, // ยังไม่ต้องลงผล
-    { no: '2.7', title: 'น้ำตาลในเลือด (FBS)', val: extractLabString(row, ['fbs', 'blood sugar']) || '-', ref: '70 - 99 mg/dL', isAbn: (parseFloat(extractLabString(row, ['fbs'])) >= 100), skipCheck: false },
-    { no: '2.8', title: 'การทำงานของไต Creatinine (mg/dL)', val: crRaw || '-', ref: 'M 0.8-1.3 / F 0.5-0.9 mg/dL', isAbn: crIsAbn, skipCheck: false },
-    { no: '2.9', title: 'การทำงานของไต (BUN)', val: extractLabString(row, ['bun']) || '-', ref: '7 - 21 mg/dL', isAbn: false, skipCheck: false },
-    { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: extractLabString(row, ['cholesterol']) || '-', ref: '< 200 mg/dL', isAbn: (parseFloat(extractLabString(row, ['cholesterol'])) >= 200), skipCheck: false },
-    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: extractLabString(row, ['triglyceride']) || '-', ref: '< 150 mg/dL', isAbn: (parseFloat(extractLabString(row, ['triglyceride'])) >= 150), skipCheck: false },
-    { no: '2.12', title: 'ไขมันดี (HDL)', val: extractLabString(row, ['hdl']) || '-', ref: '> 40 mg/dL', isAbn: false, skipCheck: false },
-    { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: extractLabString(row, ['ldl']) || '-', ref: '< 100 mg/dL', isAbn: (parseFloat(extractLabString(row, ['ldl'])) >= 100), skipCheck: false },
-    { no: '2.14', title: 'การทำงานของตับ SGOT (AST) (U/L)', val: sgotRaw || '-', ref: 'M < 35 U/L / F < 31 U/L', isAbn: sgotIsAbn, skipCheck: false },
-    { no: '2.15', title: 'การทำงานของตับ SGPT (ALT) (U/L)', val: sgptRaw || '-', ref: 'M < 35 U/L / F < 31 U/L', isAbn: sgptIsAbn, skipCheck: false },
-    { no: '2.16', title: 'เอนไซม์ตับ (ALP)', val: extractLabString(row, ['alk', 'alp']) || '-', ref: '30 - 120 U/L', isAbn: false, skipCheck: false },
-    { no: '2.17', title: 'กรดยูริก Uric acid (mg/dL)', val: uricRaw || '-', ref: 'M 3.6-8.2 / F 2.3-6.1 mg/dL', isAbn: uricIsAbn, skipCheck: false },
-    { no: '2.18', title: 'ไวรัสตับอักเสบบี (HBsAg)', val: hbsagRaw || 'Negative', ref: 'Negative', isAbn: hbsagIsAbn, skipCheck: false },
-    { no: '2.19', title: 'ไวรัสตับอักเสบซี (Anti-HCV)', val: antihcvRaw || 'Negative', ref: 'Negative', isAbn: antihcvIsAbn, skipCheck: false }
+    { no: '2.1', title: 'ดัชนีมวลกาย (BMI)', val: bmiVal, ref: '18.5 - 22.9 kg/m²', isAbn: bmiAbn, hasData: hasBmi, skipCheck: false },
+    { no: '2.2', title: 'ความดันโลหิต (BP)', val: bpVal, ref: '< 120/80 mmHg (ไม่เกิน 130/85)', isAbn: bpAbn, hasData: hasBp, skipCheck: false },
+    { no: '2.3', title: 'ความเข้มข้นเลือด (Hct)', val: hct.val, ref: isFemale ? 'F = 35 - 45 %' : 'M = 38 - 50 %', isAbn: hctAbn, hasData: hct.hasData, skipCheck: false },
+    { no: '2.4', title: 'เอกซเรย์ปอด (CXR)', val: '-', ref: 'ปกติ / ไม่พบรอยโรค', isAbn: false, hasData: false, skipCheck: true }, // เว้นว่างไว้ให้แพทย์ลงความเห็น
+    { no: '2.5', title: 'ตรวจปัสสาวะ (UA)', val: '-', ref: 'Negative', isAbn: false, hasData: false, skipCheck: true }, // เว้นว่างไว้ให้แพทย์ลงความเห็น
+    { no: '2.6', title: 'ตรวจอุจจาระ (Stool)', val: '-', ref: 'Negative', isAbn: false, hasData: false, skipCheck: true }, // เว้นว่างไว้ให้แพทย์ลงความเห็น
+    { no: '2.7', title: 'น้ำตาลในเลือด (FBS)', val: fbs.val, ref: '70 - 99 mg/dL', isAbn: fbsAbn, hasData: fbs.hasData, skipCheck: false },
+    { no: '2.8', title: 'การทำงานของไต Creatinine (mg/dL)', val: cr.val, ref: isFemale ? '0.50 - 1.10 mg/dL' : '0.80 - 1.30 mg/dL', isAbn: crAbn, hasData: cr.hasData, skipCheck: false },
+    { no: '2.9', title: 'การทำงานของไต (BUN)', val: bun.val, ref: '7 - 21 mg/dL', isAbn: bunAbn, hasData: bun.hasData, skipCheck: false },
+    { no: '2.10', title: 'คอเลสเตอรอลรวม (Cholesterol)', val: chol.val, ref: '< 200 mg/dL', isAbn: cholAbn, hasData: chol.hasData, skipCheck: false },
+    { no: '2.11', title: 'ไตรกลีเซอไรด์ (Triglyceride)', val: tg.val, ref: '< 150 mg/dL', isAbn: tgAbn, hasData: tg.hasData, skipCheck: false },
+    { no: '2.12', title: 'ไขมันดี (HDL)', val: hdl.val, ref: '> 40 mg/dL', isAbn: hdlAbn, hasData: hdl.hasData, skipCheck: false },
+    { no: '2.13', title: 'ไขมันไม่ดี (LDL)', val: ldl.val, ref: '< 100 mg/dL', isAbn: ldlAbn, hasData: ldl.hasData, skipCheck: false },
+    { no: '2.14', title: 'การทำงานของตับ SGOT (AST) (U/L)', val: sgot.val, ref: isFemale ? '< 31 U/L' : '< 35 U/L', isAbn: sgotAbn, hasData: sgot.hasData, skipCheck: false },
+    { no: '2.15', title: 'การทำงานของตับ SGPT (ALT) (U/L)', val: sgpt.val, ref: isFemale ? '< 31 U/L' : '< 35 U/L', isAbn: sgptAbn, hasData: sgpt.hasData, skipCheck: false },
+    { no: '2.16', title: 'เอนไซม์ตับ (ALP)', val: alp.val, ref: '30 - 120 U/L', isAbn: alpAbn, hasData: alp.hasData, skipCheck: false },
+    { no: '2.17', title: 'กรดยูริก Uric acid (mg/dL)', val: uric.val, ref: isFemale ? '2.3 - 6.1 mg/dL' : '3.6 - 8.2 mg/dL', isAbn: uricAbn, hasData: uric.hasData, skipCheck: false },
+    { no: '2.18', title: 'ไวรัสตับอักเสบบี (HBsAg)', val: hbsag.val, ref: 'Negative', isAbn: hbsagAbn, hasData: hbsag.hasData, skipCheck: false },
+    { no: '2.19', title: 'ไวรัสตับอักเสบซี (Anti-HCV)', val: antihcv.val, ref: 'Negative', isAbn: antihcvAbn, hasData: antihcv.hasData, skipCheck: false }
   ];
 
   tbody.innerHTML = '';
+  let hasSubheaderAge35 = false;
+
   items.forEach(it => {
+    // หัวข้อคั่นหมวด 35 ปีขึ้นไป (ข้อ 2.7 เป็นต้นไป)
+    if (!hasSubheaderAge35 && it.no === '2.7') {
+      hasSubheaderAge35 = true;
+      const trSub = document.createElement('tr');
+      trSub.className = 'group-subhdr';
+      trSub.innerHTML = `
+        <td colspan="5" style="padding: 4px 8px; font-weight: bold; background-color: #f1f5f9; color: #0369a1; font-size: 11px;">
+          <i class="fa-solid fa-notes-medical me-1"></i> รายการตรวจเพิ่มเติมสำหรับผู้มีอายุตั้งแต่ 35 ปีขึ้นไป
+        </td>
+      `;
+      tbody.appendChild(trSub);
+    }
+
     let normalMark = '';
     let abnormalMark = '';
 
-    if (!it.skipCheck) {
-      normalMark = it.isAbn ? '' : '<span style="color: #15803d; font-size: 14px; font-weight: bold;">✓</span>';
-      abnormalMark = it.isAbn ? '<span style="color: #dc2626; font-size: 14px; font-weight: bold;">✓</span>' : '';
+    // เฉพาะรายการที่มีข้อมูลจริง (hasData) และไม่ถูกข้าม (skipCheck: false) เท่านั้น จึงจะทำเครื่องหมาย ปกติ หรือ ผิดปกติ
+    if (it.hasData && !it.skipCheck) {
+      if (it.isAbn) {
+        abnormalMark = '<span style="color: #dc2626; font-size: 14px; font-weight: bold;">✓</span>';
+      } else {
+        normalMark = '<span style="color: #15803d; font-size: 14px; font-weight: bold;">✓</span>';
+      }
     }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="padding-left: 8px;"><strong>${it.no} ${it.title}</strong></td>
       <td style="padding-left: 8px; color: #333333; font-size: 10.5px;">${it.ref}</td>
-      <td style="text-align: center; font-weight: 600; font-family: monospace; font-size: 11px; ${it.isAbn ? 'color: #dc2626; font-weight: bold;' : 'color: #000000;'}">${it.val}</td>
+      <td style="text-align: center; font-weight: 600; font-family: monospace; font-size: 11px; ${it.isAbn && it.hasData ? 'color: #dc2626; font-weight: bold;' : 'color: #000000;'}">${it.val}</td>
       <td class="check-cell">${normalMark}</td>
       <td class="check-cell">${abnormalMark}</td>
     `;
